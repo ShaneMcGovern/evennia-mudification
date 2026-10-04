@@ -1,0 +1,137 @@
+[project]
+name = "evennia-mudification"
+# Starting version for a brand-new project. Where releases are automated,
+# python-semantic-release rewrites this line on the first one: a fix: goes to
+# 0.0.1, a feat: to 0.1.0. Starting at 0.1.0 instead would make that first
+# release move backwards.
+version = "0.0.0"
+# The replace pair on every free-text answer below escapes it for a TOML basic
+# string: backslash first, then quote, or the second pass would re-escape what
+# the first one wrote. Without it a description like `A CLI for "things"` renders
+# unparseable TOML, `uv lock` fails, and copier rolls the whole destination back
+# - leaving no project and an error naming a file the user never wrote.
+#
+# Not `tojson`, which is the obvious one-filter fix and is wrong here: it also
+# escapes non-ASCII to \uXXXX, so an accented author name would land unreadable
+# in a manifest people read. TOML is UTF-8; only \ and " need escaping.
+description = "A YAML-defined world content engine for Evennia: define rooms, exits and objects as data, then validate, plan, apply and prune them."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Shane McGovern", email = "shanemcgovern@protonmail.com" }]
+# Derived from python_version rather than asked for: the two must agree, and
+# when they were independent answers any interpreter but the newest produced a
+# project whose .python-version and requires-python disagreed, killing `uv lock`.
+# A wider floor is a one-line edit here.
+requires-python = ">=3.13"
+dependencies = []
+
+# Documentation metadata, like readme/license-files/authors above: nothing
+# consumes it while package = false. It is here so the repository is named in
+# the manifest rather than only in prose.
+[project.urls]
+Repository = "https://github.com/ShaneMcGovern/evennia-mudification"
+
+# An application, not a distributable: no [build-system], no [project.scripts].
+#
+# The cost is that uv does not install the project, so src/ is off sys.path and
+# `import main` fails. `pythonpath` under [tool.pytest.ini_options] restores it
+# for tests; PYTHONPATH in compose.yaml does the same for the container.
+#
+# readme, license-files and authors above are distribution metadata, now unused
+# but kept because they document the project.
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = [
+    "genbadge[coverage]>=1.1.3",
+    "mypy>=2.3.1",
+    "pre-commit>=4.6.2",
+    "ruff>=0.16.4",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# This is load-bearing rather than a convenience. With package = false uv does
+# not install the project, so without this every test fails at collection with
+# ModuleNotFoundError. Coverage still measures src/ through it.
+pythonpath = ["src"]
+addopts = "--cov --cov-report=xml --cov-report=term"
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+
+[tool.ruff]
+line-length = 88
+# target-version is deliberately unset: ruff infers it from requires-python,
+# which keeps the two from drifting apart.
+
+[tool.ruff.lint]
+# flake8-executable (EXE) is deliberately NOT selected. Its rules key off the
+# filesystem executable bit, which a Windows/WSL2 bind mount reports as 0755
+# while git tracks the same files as 0644, so EXE002 fails in the container and
+# passes in CI, for files that are not scripts and carry no shebang.
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "N",   # pep8-naming
+    "SIM", # flake8-simplify
+    "PTH", # flake8-use-pathlib
+    "ARG", # flake8-unused-arguments
+    "TID", # flake8-tidy-imports
+    "RUF", # ruff-specific
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Test fixtures are frequently accepted and not referenced directly.
+"tests/*" = ["ARG"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.mypy]
+files = ["src", "tests"]
+strict = true
+warn_unreachable = true
+# python_version is deliberately unset: mypy infers it from the interpreter it
+# runs under, which uv guarantees matches .python-version.
+
+[tool.semantic_release]
+# The version lives in exactly one place. There is deliberately no
+# version_variables: an __version__ in __init__.py would be a second copy, and
+# with nothing installed there is no importlib.metadata to check it against.
+version_toml = ["pyproject.toml:project.version"]
+# There is no real build here; this project ships nothing. To publish to PyPI
+# you would need a [build-system] back (see the comment at the top of this
+# file), then set this to "uv lock && uv build" and add a job that uploads
+# dist/ with trusted publishing (uv is on PATH because release.yml runs PSR
+# through uvx).
+#
+# This re-locks so uv.lock's recorded project version follows the bump PSR just
+# wrote into pyproject.toml. Without it every release leaves the lock stale, and
+# the uv-lock hook fails on the next push. `assets` is what gets the regenerated
+# lock into the release commit.
+build_command = "uv lock"
+assets = ["uv.lock"]
+commit_parser = "conventional"
+# Stay on the 0.x line. With this false, PSR's first release jumps straight to
+# 1.0.0, which would claim a stability guarantee a new project has not earned.
+allow_zero_version = true
+commit_message = "chore(release): {version} [skip ci]"
+tag_format = "v{version}"
+
+[tool.semantic_release.branches.main]
+match = "main"
+
+[tool.semantic_release.changelog]
+mode = "update"
+insertion_flag = "<!-- version list -->"
