@@ -4,7 +4,7 @@
 # FROM tag. Dependabot's docker ecosystem tracks FROM lines; an inline
 # `COPY --from=ghcr.io/astral-sh/uv:X` is not reliably detected, which is why the
 # previous pin sat at 0.9.26 long after 0.12.6 shipped.
-FROM ghcr.io/astral-sh/uv:0.12.7 AS uv
+FROM ghcr.io/astral-sh/uv:0.12.23 AS uv
 
 FROM python:3.13.15-slim-bookworm
 
