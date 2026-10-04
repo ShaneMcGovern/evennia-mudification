@@ -24,7 +24,7 @@ jobs:
       # Without this, `uv run` is `command not found` and the job dies at
       # exit 127, which is what happened on every run before this change.
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.0.1
+        uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: true
           cache-dependency-glob: "uv.lock"
@@ -59,7 +59,7 @@ jobs:
       # No python-version input: uv reads .python-version, so the interpreter
       # pin lives in exactly one place.
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.0.1
+        uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: true
           cache-dependency-glob: "uv.lock"
@@ -109,7 +109,7 @@ jobs:
         uses: actions/checkout@v7.0.1
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.0.1
+        uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: true
           cache-dependency-glob: "uv.lock"
