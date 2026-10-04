@@ -1,0 +1,8 @@
+# LF in the repository and in the working tree.
+#
+# `text=auto` on its own normalises to LF when committing but still checks out
+# CRLF on Windows. That breaks this project rather than merely annoying it: the
+# working tree is bind-mounted into a Linux container, and a CRLF
+# entrypoint.sh fails at startup with "bad interpreter". `eol=lf` pins the
+# working tree too, so a Windows clone runs the same bytes as CI.
+* text=auto eol=lf
