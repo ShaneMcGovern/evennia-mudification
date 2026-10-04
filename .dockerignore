@@ -1,0 +1,15 @@
+# The image copies only .devcontainer/entrypoint.sh; everything else reaches the
+# container through the bind mount. This list exists to keep the build context
+# small, so it names the heavy and the secret, nothing else.
+#
+# The cache patterns are anchored with **/ because these directories appear
+# beside the code, not at the repo root: a bare `__pycache__` would exclude only
+# a top-level one, which never exists.
+.git
+.venv
+**/.mypy_cache
+**/.pytest_cache
+**/.ruff_cache
+**/__pycache__
+dist
+**/.env

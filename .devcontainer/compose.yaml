@@ -1,0 +1,88 @@
+---
+# Without this, the project name defaults to the compose file's parent directory
+# (literally "devcontainer"), so every repo generated from this template would
+# share one set of named volumes, and one project's virtualenv could serve
+# another.
+#
+# Lowercased and dots replaced because compose normalises the name rather than
+# rejecting it: it lowercases and strips characters outside [a-z0-9_-], so
+# `Zope.Interface` and `ZopeInterface` both become `zopeinterface` and land on
+# one set of volumes - the exact collision this line exists to prevent. PEP 508
+# permits uppercase and dots, so the project_slug validator cannot rule them out
+# without rejecting legitimate PyPI names. Normalising here is visible and
+# deterministic; `Zope.Interface` becomes `zope-interface` and stays distinct.
+name: evennia-mudification
+
+services:
+  app:
+    # Context is the repo root so the build can see pyproject.toml and sources;
+    # the Dockerfile lives under .devcontainer/ only to keep the container
+    # files together.
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+      # Both default to 1000, so leaving .env alone builds the same image as
+      # before. They exist for Linux hosts whose account is not uid 1000, where
+      # a bind mount passes ownership through unchanged and the container would
+      # otherwise be unable to write into /app. Set them in .devcontainer/.env
+      # to `id -u` and `id -g` and rebuild. Windows and macOS need neither.
+      args:
+        USER_UID: ${USER_UID:-1000}
+        USER_GID: ${USER_GID:-1000}
+
+    volumes:
+      - ..:/app
+
+      # The virtualenv lives in a named volume rather than on the bind mount, so
+      # container-built binaries never collide with host file permissions.
+      - venv:/app/.venv
+
+      # Caches survive `docker compose down` and image rebuilds. The pre-commit
+      # cache is the expensive one: without it every new container rebuilds each
+      # hook's isolated environment from scratch.
+      - uv-cache:/home/developer/.cache/uv
+      - precommit-cache:/home/developer/.cache/pre-commit
+
+      # gh auth login writes here; the volume is what makes it survive a rebuild.
+      - gh-config:/home/developer/.config/gh
+
+    working_dir: /app
+
+    # Tini as PID 1: correct signal handling and zombie reaping.
+    init: true
+
+    # The list form is deliberate: a bare name passes the variable through only
+    # when set, where the map form's `${VAR:-}` would inject an empty string.
+    # git reads GIT_AUTHOR_NAME/EMAIL directly and they outrank user.name, so an
+    # empty value fails every commit with "fatal: empty ident name" and
+    # `git config` cannot override it. entrypoint.sh cannot unset it either,
+    # because VS Code terminals and `docker exec` bypass the entrypoint.
+    environment:
+      - GIT_AUTHOR_NAME
+      - GIT_AUTHOR_EMAIL
+      - GH_CONFIG_DIR=/home/developer/.config/gh
+      - UV_CACHE_DIR=/home/developer/.cache/uv
+      - PRE_COMMIT_HOME=/home/developer/.cache/pre-commit
+      # package = false means uv never installs the project, so src/ is off
+      # sys.path and `python -m main` fails with "No module named" without this.
+      # pytest has its own `pythonpath`; nothing else does. Absolute, because a
+      # relative entry would follow the caller's directory rather than /app.
+      - PYTHONPATH=/app/src
+
+    healthcheck:
+      # Tests for the interpreter binary rather than the directory: the
+      # Dockerfile pre-creates /app/.venv, so `test -d` there was true before
+      # uv sync had ever run and the check could never fail.
+      test: ["CMD", "test", "-x", "/app/.venv/bin/python"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # A cold sync after `down -v` can exceed two minutes; too short a grace
+      # period flips the container to unhealthy before it has finished starting.
+      start_period: 180s
+
+volumes:
+  venv:
+  uv-cache:
+  precommit-cache:
+  gh-config:
