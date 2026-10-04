@@ -6,3 +6,7 @@ Conventional Commit messages. Do not edit entries by hand — they are inserted
 below the marker on each release.
 
 <!-- version list -->
+
+## v0.0.0 (2026-10-04)
+
+- Initial Release
