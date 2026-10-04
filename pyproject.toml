@@ -14,7 +14,7 @@ version = "0.0.0"
 # Not `tojson`, which is the obvious one-filter fix and is wrong here: it also
 # escapes non-ASCII to \uXXXX, so an accented author name would land unreadable
 # in a manifest people read. TOML is UTF-8; only \ and " need escaping.
-description = "A Python project."
+description = "A YAML-defined world content engine for Evennia: define rooms, exits and objects as data, then validate, plan, apply and prune them."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
