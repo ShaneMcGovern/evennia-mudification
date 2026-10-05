@@ -65,10 +65,9 @@ class TestLifecycle(BaseEvenniaTestCase):
             assert coin.location == chest
             assert reverse.location == find_entity_object("cellar")
             assert reverse.key == "The Great Hall"
-            assert guard.db.hp == 5  # template values were applied
+            assert guard.db.hp == 5
             assert find_entity_object("rats#3") is not None
 
-            # retire one instance by lowering the count, then prune it
             world = root / "world.yaml"
             world.write_text(
                 world.read_text(encoding="utf-8").replace("count: 3", "count: 2"),
@@ -85,8 +84,8 @@ class TestLifecycle(BaseEvenniaTestCase):
             assert find_entity_object("rats#3") is None
             assert "rats#1" in managed_ids()
 
-            # retire the cellar and its exit; an untagged occupant evacuates
-            # to its home, the first-created hall (the test DEFAULT_HOME)
+            # An untagged occupant evacuates to its home, the first-created
+            # hall (the test DEFAULT_HOME).
             cellar: Any = find_entity_object("cellar")
             crate = create.create_object(
                 "evennia.objects.objects.DefaultObject",

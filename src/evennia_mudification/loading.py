@@ -18,11 +18,10 @@ def load_content(
 ) -> tuple[ContentIndex, list[Finding]]:
     """Load, compile and validate a content root; never raises for bad content.
 
-    A missing (or non-directory) root is the ``content-root-missing`` error:
-    a typo'd path must fail loudly rather than validate zero entities clean.
-    Read failures (unreadable files, non-UTF8 bytes) and any other exception
-    while loading become a synthetic ``load-error`` finding instead of
-    aborting the CLI, the in-game command or the server-start hook.
+    A missing root is the ``content-root-missing`` error, so a typo'd path
+    cannot validate zero entities clean. Read failures and any other exception
+    become a synthetic ``load-error`` finding instead of aborting the CLI, the
+    in-game command or the server-start hook.
     """
     if not root.is_dir():
         finding = Finding(

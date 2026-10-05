@@ -55,11 +55,9 @@ def entity_to_prototype(
     }
     if typeclass is not None:
         prototype["typeclass"] = typeclass
-    # Empty declarations are omitted, not declared as empty: Evennia's diff
-    # treats a missing key as "leave the live value alone", which is the
-    # ownership model these prototypes promise. Declaring "" / [] explicitly
-    # would report (and on update clear) state the content never mentioned -
-    # including builder-added attrs/aliases on an entity that declares none.
+    # Omit empty declarations: Evennia reads a missing key as "leave the live
+    # value alone", and declaring "" / [] would report and clear state the
+    # content never mentioned.
     if entity.aliases:
         prototype["aliases"] = list(entity.aliases)
     if attrs:
@@ -98,10 +96,9 @@ def register_prototypes(index: ContentIndex) -> int:
         if not isinstance(entity, PrototypeEntity):
             continue
         prototype = entity_to_prototype(entity, index=index, resolve_ref=_no_refs)
-        # Entity and source tags identify applied world objects; a template is
-        # neither, and Evennia's tag inheritance would copy them onto every
-        # child spawned from it, corrupting managed-id identity. Declared
-        # template tags stay: inheriting those is what a template is for.
+        # Engine and source tags would be inherited onto every spawned child,
+        # corrupting managed-id identity. Declared template tags stay:
+        # inheriting those is what a template is for.
         prototype["tags"] = [
             entry
             for entry in prototype["tags"]
@@ -109,11 +106,9 @@ def register_prototypes(index: ContentIndex) -> int:
         ]
         prototypes.append(prototype)
     if prototypes:
-        # `load_module_prototypes` homogenizes module-sourced prototypes but
-        # stores dicts as-is; a parent consumed from the store is not
-        # homogenized by `spawn`, and its inheritance expects the canonical
-        # four-tuple attrs, so normalize here. Registration is idempotent:
-        # `override=True` replaces a template already in the module store.
+        # `load_module_prototypes` stores dicts as-is, so normalize to the
+        # canonical four-tuple attrs that spawn's inheritance expects.
+        # `override=True` keeps registration idempotent.
         load_module_prototypes(
             *(homogenize_prototype(prototype) for prototype in prototypes),
             override=True,

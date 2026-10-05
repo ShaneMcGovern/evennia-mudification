@@ -1,19 +1,9 @@
-# Cherry-picked from github/gitignore's Python.gitignore rather than vendored
-# wholesale. Upstream is 96 active rules covering Django, Flask, Scrapy, Sphinx,
-# Celery, Redis, RabbitMQ, SageMath and a dozen more this template cannot
-# produce. What is kept is what a project generated from here can actually grow
-# into. Upstream also carries neither .DS_Store nor Thumbs.db.
-
-# Byte-compiled / optimized
+# Cherry-picked from github/gitignore's Python.gitignore, not vendored wholesale.
 __pycache__/
 *.py[codz]
 *$py.class
 *.so
 
-# Packaging
-# Nothing here builds a wheel: there is no [build-system] and package = false.
-# These are kept anyway because pyproject.toml documents how to add a build
-# backend, and the day someone does, dist/ should already be ignored.
 build/
 dist/
 sdist/
@@ -23,20 +13,14 @@ wheels/
 *.egg
 MANIFEST
 
-# Environments
-# uv.lock is deliberately NOT ignored: it is committed for reproducible installs.
-#
-# .env holds this checkout's git identity and is written at generation time from
-# the author answers. It stays local - per-developer, and where secrets end up
-# later. .env.example is the committed copy and holds placeholders, not those
-# answers: it is what everyone else who clones this repository copies.
+# uv.lock is committed deliberately (reproducible installs); .env stays local
+# (git identity, later secrets). .env.example is the committed copy to copy.
 .venv/
 venv/
 .env
 .envrc
 
-# Tests and coverage
-# badges/coverage.svg is committed; coverage.xml is the regenerable input.
+# badges/coverage.svg is committed; coverage.xml is its regenerable input.
 .pytest_cache/
 .coverage
 .coverage.*
@@ -45,19 +29,15 @@ htmlcov/
 .cache
 .hypothesis/
 
-# Type checkers and linters
 .mypy_cache/
 .dmypy.json
 .ruff_cache/
 .pyre/
 .pytype/
 
-# Notebooks
 .ipynb_checkpoints/
 
-# Logs
 *.log
 
-# OS and editor cruft
 .DS_Store
 Thumbs.db

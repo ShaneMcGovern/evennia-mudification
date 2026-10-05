@@ -22,10 +22,9 @@ def run_deferred(
 ) -> bool:
     """Run `to_execute` in a worker thread when a reactor is running.
 
-    Returns True when the work was deferred (callbacks fire later, on the
-    reactor thread), False when it ran inline (callbacks fire immediately).
-    Known caveat: Evennia warns that heavy database work from a second
-    thread performs poorly on sqlite; large worlds should run postgres.
+    Returns True when deferred (callbacks fire later, on the reactor thread),
+    False when inline. Caveat: heavy database work from a second thread is
+    poor on sqlite; large worlds should run postgres.
     """
     if _reactor_running():
         from evennia.utils.utils import run_async

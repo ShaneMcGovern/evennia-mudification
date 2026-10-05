@@ -61,13 +61,10 @@ class TestEndToEnd(BaseEvenniaTestCase):
                 "square"
             ]
 
-            # Re-applying unchanged content changes nothing.
             assert build_plan(self._load(root), resolve_ref=self._resolve).is_empty()
 
-            # A builder adds something the content does not declare...
             square.db.notes = "builder scribbles"
 
-            # ...then the content changes two entities and is applied.
             corpus_file = root / "village.yaml"
             text = corpus_file.read_text(encoding="utf-8")
             text = text.replace("A well-worn square.", "A busy market square.")

@@ -54,12 +54,9 @@ def apply_plan(
 ) -> ApplyReport:
     """Create and update entities, isolating per-entity failures.
 
-    Creates run in passes so an object placed inside another object applies in
-    one run regardless of declaration order: a ``LookupError`` (a reference
-    not applied yet) defers that entity to the next pass, while other
-    exceptions report a failure immediately. Passes repeat until no create
-    succeeds, at which point the remaining deferred entities are reported as
-    failed with their ``LookupError``. Updates run afterwards, unchanged.
+    Creates run in deferred passes so an object placed inside another applies
+    regardless of declaration order; whatever is still unresolved when a pass
+    makes no progress is reported with its ``LookupError``. Updates run after.
     """
     report = ApplyReport()
     pending: list[PlannedChange] = sorted(

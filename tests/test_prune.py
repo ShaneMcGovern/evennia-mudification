@@ -69,7 +69,7 @@ class TestPrune(BaseEvenniaTestCase):
         stranded = create.create_object(
             "evennia.objects.objects.DefaultCharacter", key="Stranded", location=hall
         )
-        stranded.home = hall  # the home itself is being retired
+        stranded.home = hall
         prune_plan = plan_prune({"square"}, fallback=inn)
         reasons = {
             evacuation.occupant.key: evacuation.reason
@@ -78,8 +78,7 @@ class TestPrune(BaseEvenniaTestCase):
         assert reasons["Stranded"] == "fallback"
 
     def test_retired_occupants_are_not_evacuated(self) -> None:
-        # A room and everything inside it retiring together strands nobody:
-        # this run destroys the occupants too, so no fallback is needed.
+        # Everything inside retires together, so no fallback is needed.
         self._spawn_world()
         prune_plan = plan_prune({"square", "square-inn", "signpost"}, fallback=None)
         assert prune_plan.errors == []

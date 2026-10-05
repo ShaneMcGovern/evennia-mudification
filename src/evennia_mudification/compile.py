@@ -113,9 +113,8 @@ def _flatten_contents(index: ContentIndex) -> None:
                 )
                 continue
             if child.count is not None:
-                # A nested counted entity with children is flagged by
-                # `_expand_counts`; keeping its children unflattened reports
-                # the error exactly once, mirroring the top-level case.
+                # Counted entities with children are flagged by `_expand_counts`;
+                # keeping the children unflattened reports it exactly once.
                 index.entities[child.id] = child.model_copy(
                     update={"location": f"@{parent_id}"}
                 )
@@ -133,8 +132,7 @@ def _flatten_contents(index: ContentIndex) -> None:
         if not isinstance(entity, (RoomEntity, ObjectEntity)) or not entity.contents:
             continue
         if isinstance(entity, ObjectEntity) and entity.count is not None:
-            # A counted entity with children is flagged by `_expand_counts`;
-            # leaving its children unflattened reports the error exactly once.
+            # Flagged by `_expand_counts`; leave the children for that report.
             continue
         source = index.entity_sources[entity.id]
         children = list(entity.contents)
@@ -171,17 +169,15 @@ def _expand_counts(index: ContentIndex) -> None:
 
 def _synthesize_reverse_exits(index: ContentIndex) -> None:
     """Create `<id>:reverse` exits for declared `reverse:` markers."""
-    # Synthesized ids (`<id>:reverse`) cannot collide with declared ids: the
-    # declared-id grammar forbids `:`, each source exit id is unique, and
-    # synthesized copies carry `reverse: None`, so each reverse id is unique.
+    # Synthesized `<id>:reverse` cannot collide: declared ids forbid `:`, source
+    # ids are unique, and synthesized copies carry `reverse: None`.
     for entity in list(index.entities.values()):
         if not isinstance(entity, ExitEntity) or not entity.reverse:
             continue
         source = index.entity_sources[entity.id]
         reverse_id = f"{entity.id}:reverse"
-        # The reverse exit leads back where this one came from; its inferred
-        # key is the key of the room it leads to (the synthesized exit's
-        # destination, i.e. this exit's location).
+        # The reverse leads back where this exit came from, so it swaps
+        # location/destination and takes the arrival room's key.
         leads_to = index.entities.get(ref_target(entity.location))
         override = (
             entity.reverse if isinstance(entity.reverse, ReverseOverride) else None

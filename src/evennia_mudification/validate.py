@@ -142,9 +142,8 @@ def find_reserved_tag_issues(index: ContentIndex) -> list[Finding]:
     findings: list[Finding] = []
     for entity in index.entities.values():
         for category in entity.tags.values():
-            # Evennia stores tag categories stripped and lowercased, so a
-            # declared category only collides with a reserved one after the
-            # same normalization.
+            # Evennia stores tag categories stripped and lowercased, so compare
+            # that way against the reserved ones.
             if str(category).strip().lower() in RESERVED_TAG_CATEGORIES:
                 findings.append(
                     Finding(

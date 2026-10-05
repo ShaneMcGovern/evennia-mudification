@@ -1,6 +1,11 @@
 ---
 version: 2
 
+# Each ecosystem repeats the commit-message block; the schema leaves no
+# top-level key to hang an anchor off. "chore" is deliberate: Dependabot's
+# default subject is not conventional, and a non-conventional one silently
+# produces no release under PSR.
+
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -14,16 +19,16 @@ updates:
     directory: "/.devcontainer"
     schedule:
       interval: weekly
+    # Image tags are toolchain choices, not ordinary dependencies: leaving a
+    # line is a deliberate upgrade, not a bot pull request.
     ignore:
+      # .python-version pins 3.13; 3.14 is a project decision.
       - dependency-name: "python"
         update-types:
           - "version-update:semver-major"
           - "version-update:semver-minor"
 
-      - dependency-name: "node"
-        update-types:
-          - "version-update:semver-major"
-
+      # Pre-1.0: a 0.13 minor can break, so only 0.12.x patches flow.
       - dependency-name: "astral-sh/uv"
         update-types:
           - "version-update:semver-major"

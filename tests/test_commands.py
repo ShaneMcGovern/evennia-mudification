@@ -90,8 +90,7 @@ class TestCmdMudification(BaseEvenniaTestCase):
         assert "no changes" in output
 
     def test_apply_refuses_invalid_content(self) -> None:
-        # A unittest.TestCase cannot take pytest's tmp_path fixture; the temp
-        # directory stands in for a broken content checkout.
+        # unittest.TestCase cannot take pytest's tmp_path fixture; tempfile stands in.
         with tempfile.TemporaryDirectory() as directory:
             _write_dangling(directory)
             with self.settings(MUDIFICATION_CONTENT_PATH=directory):
@@ -210,7 +209,7 @@ class TestCmdMudification(BaseEvenniaTestCase):
                 output = self._run(caller, "prune")
                 assert "retire square" in output
                 assert "prune confirm" in output
-                assert find_entity_object("square") is not None  # preview only
+                assert find_entity_object("square") is not None
                 output = self._run(caller, "prune confirm")
         assert "destroy square: ok" in output
         assert "destroy signpost: ok" in output

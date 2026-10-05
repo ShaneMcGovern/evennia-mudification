@@ -133,8 +133,7 @@ class TestPlan(BaseEvenniaTestCase):
         assert "inn" not in {change.entity_id for change in plan.changes}
 
     def test_declared_locks_and_mixed_case_permissions_stay_idempotent(self) -> None:
-        # A unittest.TestCase cannot take pytest's tmp_path fixture; the temp
-        # directory stands in for a content checkout.
+        # unittest.TestCase cannot take pytest's tmp_path fixture; tempfile stands in.
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             content = root / "hall.yaml"
@@ -153,12 +152,10 @@ class TestPlan(BaseEvenniaTestCase):
             assert "get:false()" in hall.locks.all()
             assert "builders" in hall.permissions.all()
 
-            # Evennia stores the full default lockset and lowercased
-            # permissions; declared-subset comparison must see no change.
+            # Evennia stores the full lockset and lowercased permissions;
+            # subset comparison must see no change.
             assert build_plan(self._index(root), resolve_ref=self._resolver).is_empty()
 
-            # A real update is still reported and, once applied, converges
-            # back to an empty plan.
             content.write_text(
                 content.read_text(encoding="utf-8").replace(
                     "The hall", "The great hall"
@@ -172,7 +169,6 @@ class TestPlan(BaseEvenniaTestCase):
             assert apply_plan(plan, index=index2, resolve_ref=self._resolver).ok
             assert build_plan(self._index(root), resolve_ref=self._resolver).is_empty()
 
-            # A declared lock the object does not have is a real change.
             content.write_text(
                 content.read_text(encoding="utf-8").replace("false()", "true()"),
                 encoding="utf-8",
@@ -185,8 +181,6 @@ class TestPlan(BaseEvenniaTestCase):
             assert "get:true()" in hall.locks.all()
             assert build_plan(self._index(root), resolve_ref=self._resolver).is_empty()
 
-            # A declared permission the object does not have is also a real
-            # change, added case-insensitively.
             content.write_text(
                 content.read_text(encoding="utf-8").replace(
                     "- Builders", "- Builders\n      - Admins"
@@ -217,8 +211,8 @@ class TestPlan(BaseEvenniaTestCase):
             index = self._index(root)
             plan = build_plan(index, resolve_ref=self._resolver)
             assert apply_plan(plan, index=index, resolve_ref=self._resolver).ok
-            # Evennia stored aliases, tags and permissions stripped and
-            # lowercased; declared-subset comparison must see no change.
+            # Evennia stored these stripped and lowercased; subset comparison
+            # must see no change.
             assert build_plan(self._index(root), resolve_ref=self._resolver).is_empty()
 
     def test_changed_alias_is_reported(self) -> None:

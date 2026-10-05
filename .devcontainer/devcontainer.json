@@ -1,11 +1,7 @@
 {
-  // A thin editor wrapper over compose.yaml. Everything that makes the
-  // environment usable (uv sync, git identity, pre-commit hooks) lives in
-  // entrypoint.sh, so `docker compose up` on its own is enough and this file
-  // only carries VS Code concerns.
+  // Thin editor wrapper over compose.yaml; entrypoint.sh does the real setup.
   "name": "evennia-mudification",
 
-  // Paths are relative to the .devcontainer/ directory.
   "dockerComposeFile": "compose.yaml",
   "service": "app",
   "workspaceFolder": "/app",
@@ -19,17 +15,12 @@
       ],
       "settings": {
         "python.defaultInterpreterPath": "/app/.venv/bin/python",
-        // Without this the extension type-checks with its own bundled mypy,
-        // which cannot see anything in .venv - so every third-party import is
-        // reported as missing and the editor disagrees with `uv run mypy` and
-        // with CI. fromEnvironment uses the interpreter above, which is the
-        // same mypy the pre-commit hook runs.
+        // Without this, the extension's bundled mypy cannot see .venv and
+        // disagrees with `uv run mypy` and CI.
         "mypy-type-checker.importStrategy": "fromEnvironment",
         "python.testing.pytestEnabled": true,
-        // addopts in pyproject.toml carries --cov, and coverage.py and the
-        // debugger both work by tracing, so with coverage on the editor silently
-        // skips breakpoints inside tests. This turns it off for editor runs
-        // only; CI and `uv run pytest` still measure coverage.
+        // Coverage tracing silently disables breakpoints in editor runs only;
+        // CI and `uv run pytest` still measure coverage.
         "python.testing.pytestArgs": ["--no-cov"],
         "editor.formatOnSave": true,
         "[python]": {
@@ -42,6 +33,5 @@
     }
   },
 
-  // Generic user for shared dev environments.
   "remoteUser": "developer"
 }

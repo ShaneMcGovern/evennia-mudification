@@ -37,8 +37,7 @@ class TestConnectedSessions(BaseEvenniaTestCase):
             assert runtime._connected_sessions() == [1, 2]
 
     def test_without_a_server_it_is_empty(self) -> None:
-        # SESSION_HANDLER is None outside a running server, pytest included.
-        # Verified directly against the installed Evennia.
+        # SESSION_HANDLER is None outside a running server (pytest included).
         with mock.patch("evennia.server.sessionhandler.SESSION_HANDLER", None):
             assert runtime._connected_sessions() == []
 
