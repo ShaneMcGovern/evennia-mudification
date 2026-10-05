@@ -4,7 +4,7 @@ name = "evennia-mudification"
 # python-semantic-release rewrites this line on the first one: a fix: goes to
 # 0.0.1, a feat: to 0.1.0. Starting at 0.1.0 instead would make that first
 # release move backwards.
-version = "0.1.0"
+version = "0.2.0"
 # The replace pair on every free-text answer below escapes it for a TOML basic
 # string: backslash first, then quote, or the second pass would re-escape what
 # the first one wrote. Without it a description like `A CLI for "things"` renders

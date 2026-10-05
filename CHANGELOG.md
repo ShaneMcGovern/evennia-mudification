@@ -7,6 +7,16 @@ below the marker on each release.
 
 <!-- version list -->
 
+## v0.2.0 (2026-10-04)
+
+### Features
+
+- Add counts, expanding one declaration into numbered instances
+- Add nested contents, placing objects inside rooms or other objects
+- Add reverse exits that synthesize the return exit
+- Add prototype templates an object can inherit from
+- Add prune, retiring what content dropped with evacuation before destruction
+
 ## v0.1.0 (2026-10-04)
 
 ### Features
