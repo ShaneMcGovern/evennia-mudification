@@ -7,6 +7,15 @@ below the marker on each release.
 
 <!-- version list -->
 
+## v0.1.0 (2026-10-04)
+
+### Features
+
+- Add the mudification content engine: the content bundle model and compiler
+- Add planning against the live database and the apply pipeline
+- Add the command-line interface with validate and schema subcommands
+- Add the in-game command and server-start validation
+
 ## v0.0.0 (2026-10-04)
 
 - Initial Release
