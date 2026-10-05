@@ -4,7 +4,7 @@
 # docker ecosystem tracks; an inline `COPY --from=` is not reliably detected.
 FROM ghcr.io/astral-sh/uv:0.12.7 AS uv
 
-FROM python:3.13.15-slim-bookworm
+FROM python:3.13.16-slim-bookworm
 
 # libatomic1: required by the Node runtime pre-commit's nodeenv installs for the
 # prettier hook; without it the hook fails with "libatomic.so.1: cannot open
