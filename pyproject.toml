@@ -24,45 +24,48 @@ authors = [{ name = "Shane McGovern", email = "shanemcgovern@protonmail.com" }]
 # project whose .python-version and requires-python disagreed, killing `uv lock`.
 # A wider floor is a one-line edit here.
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "pydantic>=2",
+    "pyyaml>=6",
+]
 
-# Documentation metadata, like readme/license-files/authors above: nothing
-# consumes it while package = false. It is here so the repository is named in
-# the manifest rather than only in prose.
+# Documentation metadata, like readme/license-files/authors above: it is here so
+# the repository is named in the manifest rather than only in prose.
 [project.urls]
 Repository = "https://github.com/ShaneMcGovern/evennia-mudification"
 
-# An application, not a distributable: no [build-system], no [project.scripts].
-#
-# The cost is that uv does not install the project, so src/ is off sys.path and
-# `import main` fails. `pythonpath` under [tool.pytest.ini_options] restores it
-# for tests; PYTHONPATH in compose.yaml does the same for the container.
-#
-# readme, license-files and authors above are distribution metadata, now unused
-# but kept because they document the project.
-[tool.uv]
-package = false
+[build-system]
+requires = ["uv_build>=0.12.7,<0.13"]
+build-backend = "uv_build"
+
+[project.scripts]
+mudification = "evennia_mudification.cli:main"
 
 [dependency-groups]
 dev = [
     "genbadge[coverage]>=1.1.3",
     "mypy>=2.3.1",
+    "types-PyYAML>=6",
     "pre-commit>=4.6.2",
     "ruff>=0.16.4",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
+    "evennia>=6.1.0",
+    "pytest-django>=4.14.0",
 ]
 
 [tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "evennia.settings_default"
 testpaths = ["tests"]
-# This is load-bearing rather than a convenience. With package = false uv does
-# not install the project, so without this every test fails at collection with
-# ModuleNotFoundError. Coverage still measures src/ through it.
-pythonpath = ["src"]
-addopts = "--cov --cov-report=xml --cov-report=term"
+# --import-mode=importlib is pytest's recommendation for new projects; the
+# default prepend mode imports test files as top-level modules, which requires
+# globally unique test filenames. The coverage floor is deliberate: 95.4 is the
+# enforced minimum, more is better; exclude genuinely unreachable code with
+# `# pragma: no cover` rather than lowering the floor.
+addopts = "--cov --cov-report=xml --cov-report=term --import-mode=importlib --cov-fail-under=95.4"
 
 [tool.coverage.run]
-source = ["src"]
+source = ["evennia_mudification"]
 branch = true
 
 [tool.ruff]
@@ -105,16 +108,27 @@ warn_unreachable = true
 # python_version is deliberately unset: mypy infers it from the interpreter it
 # runs under, which uv guarantees matches .python-version.
 
+# Evennia and Django ship no py.typed marker, so their modules are Any to
+# mypy. Without these overrides every Evennia-based test is rejected twice
+# under strict mode: once for importing an untyped module, once for
+# subclassing its Any base. The subclassing override covers all of tests/ since
+# any test may import Evennia; it drops only that one check. src/ keeps full
+# strictness.
+[[tool.mypy.overrides]]
+module = ["evennia.*", "django.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_subclassing_any = false
+
 [tool.semantic_release]
 # The version lives in exactly one place. There is deliberately no
-# version_variables: an __version__ in __init__.py would be a second copy, and
-# with nothing installed there is no importlib.metadata to check it against.
+# version_variables: an __version__ in __init__.py would be a second copy of it.
 version_toml = ["pyproject.toml:project.version"]
-# There is no real build here; this project ships nothing. To publish to PyPI
-# you would need a [build-system] back (see the comment at the top of this
-# file), then set this to "uv lock && uv build" and add a job that uploads
-# dist/ with trusted publishing (uv is on PATH because release.yml runs PSR
-# through uvx).
+# The package builds, but nothing is published yet. To publish to PyPI, set
+# build_command to "uv lock && uv build" and add a job that uploads dist/ with
+# trusted publishing (uv is on PATH because release.yml runs PSR through uvx).
 #
 # This re-locks so uv.lock's recorded project version follows the bump PSR just
 # wrote into pyproject.toml. Without it every release leaves the lock stale, and
