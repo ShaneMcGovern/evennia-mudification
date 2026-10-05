@@ -43,7 +43,6 @@ class TestPrototypeTemplates(BaseEvenniaTestCase):
             }
         )
         assert register_prototypes(index) == 1
-        # spawn() accepts a registered prototype key directly.
         (obj,) = spawn("tpl")
         assert obj.db.hp == 5
         obj.delete()
@@ -90,8 +89,7 @@ class TestPrototypeTemplates(BaseEvenniaTestCase):
         assert "typeclass" not in prototype  # the template supplies it
         (obj,) = spawn(prototype)
         assert obj.db.hp == 5
-        # The template's engine bookkeeping tags must not leak onto the child;
-        # the child carries its own.
+        # The template's engine tags must not leak onto the child.
         live_tags = obj.tags.all(return_key_and_category=True)
         assert ("tpl", ENTITY_TAG_CATEGORY) not in live_tags
         assert ("guard", ENTITY_TAG_CATEGORY) in live_tags

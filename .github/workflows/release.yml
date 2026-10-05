@@ -29,8 +29,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7.0.1
         with:
-          # Required: python-semantic-release walks the full commit history and
-          # tag list to compute the next version. A shallow clone breaks it.
+          # PSR walks the full history and tag list.
           fetch-depth: 0
 
       - name: Set up uv
@@ -44,22 +43,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      # NOT the python-semantic-release Docker action. That action's image is
-      # built with `pip install --pre`, so it resolves pre-release dependencies at
-      # image-build time and offers no way to pin a transitive one. That is what
-      # made it unusable when GitPython briefly dropped Actor.name_email_regex;
-      # GitPython restored that attribute as a deprecation shim in 3.1.61 and PSR
-      # no longer references it, but the pre-release resolution that caused the
-      # problem has not changed.
-      #
-      # uvx rather than a dev dependency, unlike the template repository's own
-      # copy of this workflow: a release tool only this job runs should not be
-      # installed by every `uv sync --all-groups`, in CI and in the dev container.
-      # The cost is that no Dependabot ecosystem can see this pin - the uv one
-      # reads pyproject.toml and uv.lock, github-actions reads `uses:` - so bump
-      # it by hand when the template's own PSR moves.
-      #
-      # Configuration comes from [tool.semantic_release] in pyproject.toml.
+      # uvx, not the PSR Docker action: that image resolves pre-release
+      # dependencies at build time with no way to pin a transitive one. Not a
+      # dev dependency either: only this job runs it. Dependabot cannot see this
+      # pin, so bump it by hand; configuration is in pyproject.toml.
       - name: Python Semantic Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

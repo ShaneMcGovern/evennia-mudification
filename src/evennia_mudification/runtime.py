@@ -101,7 +101,6 @@ def validate_on_start() -> ValidationSummary | None:
     )
     for finding in summary.errors:
         if finding.code == "load-error":
-            # Keep the pre-helper log line for load failures.
             logger.log_err(f"mudification: content load failed: {finding.message}")
         else:
             logger.log_err(f"mudification: {finding.render()}")

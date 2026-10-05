@@ -1,16 +1,11 @@
 #!/bin/bash
-# Container start: configure git identity, sync the environment, stay alive.
 set -euo pipefail
 
 cd /app
 
-# The bind-mounted repo is owned by the host user, not by `developer`. Guarded
-# rather than unconditional: --add appends on every start, and a plain
-# `docker start` would otherwise accumulate duplicate entries.
-# /app/.git is listed separately on purpose: git checks the exact path, and
-# tools that clone the repo from inside the container (`copier update`, for one)
-# ask about /app/.git rather than /app, and fail with "dubious ownership" if only
-# /app is exempt.
+# /app/.git separately on purpose: git checks the exact path, and `copier
+# update` fails with "dubious ownership" if only /app is exempt. The guard
+# stops --add duplicating entries on every restart.
 for d in /app /app/.git; do
   if ! git config --global --get-all safe.directory 2>/dev/null | grep -qx "${d}"; then
     git config --global --add safe.directory "${d}"
@@ -26,13 +21,9 @@ else
 fi
 
 if [ -f pyproject.toml ]; then
-  # A Windows bind mount can present uv.lock as read-only. Sync from it without
-  # writing instead of deleting it: the previous behaviour discarded every
-  # pinned version to work around a permission bug.
-  #
-  # The `! -f` arm matters. `[ -w uv.lock ]` is also false when the file does not
-  # exist, so without it a fresh clone would take the --frozen path and fail on a
-  # missing lockfile.
+  # `[ -w uv.lock ]` is false when the file is missing too, so the `! -f` arm
+  # keeps a fresh clone off the --frozen path. A read-only lock (Windows bind
+  # mount) syncs --frozen rather than being deleted to dodge the permissions.
   if [ ! -f uv.lock ] || [ -w uv.lock ]; then
     sync_cmd=(uv sync --all-groups)
   else
@@ -40,9 +31,8 @@ if [ -f pyproject.toml ]; then
     sync_cmd=(uv sync --frozen --all-groups)
   fi
 
-  # Deliberately non-fatal. Under `set -e` a transient failure here (no network
-  # on first start, a package index outage) would abort this script and kill the
-  # container, leaving the user with no way to shell in and diagnose.
+  # Deliberately non-fatal: under `set -e` a transient failure (no network on
+  # first start) would kill the container and leave no way to diagnose it.
   if ! "${sync_cmd[@]}"; then
     echo "WARNING: uv sync failed. The container is still running so you can"
     echo "         attach and re-run 'uv sync --all-groups' once the cause is fixed."
@@ -51,13 +41,8 @@ else
   echo "pyproject.toml not found; skipping uv sync"
 fi
 
-# Install the git hooks here rather than from a devcontainer postCreateCommand,
-# so that `docker compose up` on its own produces a complete environment and
-# devcontainer.json stays a thin editor wrapper over this file. Guards that
-# postCreateCommand got for free:
-#   - no .git yet: a freshly generated project before `git init`
-#   - no config: a project that does not use pre-commit
-#   - non-fatal: a failure here must not take the container down with it
+# Installed here rather than in a devcontainer postCreateCommand so that
+# `docker compose up` alone yields a complete environment; failure is non-fatal.
 if [ -d .git ] && [ -f .pre-commit-config.yaml ]; then
   if ! uv run --frozen pre-commit install --install-hooks; then
     echo "WARNING: pre-commit install failed; git hooks are NOT active."

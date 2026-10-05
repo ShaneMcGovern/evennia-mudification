@@ -2,8 +2,7 @@
 name: Validate
 
 on:
-  # Every branch, including main: a squash-merged commit is a commit no CI run
-  # has ever seen, and the badge job below only runs there.
+  # Every branch, including main: the badge job below only runs there.
   push:
   pull_request:
     branches:
@@ -21,8 +20,6 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7.0.1
 
-      # Without this, `uv run` is `command not found` and the job dies at
-      # exit 127, which is what happened on every run before this change.
       - name: Set up uv
         uses: astral-sh/setup-uv@v10.0.1
         with:
@@ -34,13 +31,11 @@ jobs:
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
-          # Without this, editing any hook revision is a full cold miss and
-          # every environment rebuilds. The stale cache is still mostly valid.
+          # Editing a hook revision would otherwise be a full cold miss.
           restore-keys: |
             pre-commit-
 
-      # The local ruff and mypy hooks shell out to `uv run`, so the project
-      # environment has to exist before the hooks run.
+      # The ruff and mypy hooks run through `uv run`; the environment must exist.
       - name: Install dependencies
         run: uv sync --frozen --all-groups
 
@@ -56,8 +51,6 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7.0.1
 
-      # No python-version input: uv reads .python-version, so the interpreter
-      # pin lives in exactly one place.
       - name: Set up uv
         uses: astral-sh/setup-uv@v10.0.1
         with:
@@ -80,17 +73,9 @@ jobs:
           path: coverage.xml
           if-no-files-found: error
 
-  # A deliberate choice, not inherited furniture: a generated project starts as
-  # one file printing one line, and this chain — a job, a genbadge dev
-  # dependency, a committed SVG, a README badge and a contents: write grant —
-  # is the largest single thing it carries. It is kept because a coverage badge
-  # is standard equipment for a Python repository, and adding one later means
-  # rediscovering all of that; a project that does not want it deletes this job,
-  # the upload step above, genbadge from the dev group, and badges/.
-  #
-  # A separate job rather than a step in `test` on purpose: `test` runs the
-  # project's own test code, and this job holds contents: write on main. Merging
-  # them would hand that grant to whatever the tests execute.
+  # This job runs the project's own test code while holding contents: write, so
+  # it is a separate job from `test`: merging them would hand that grant to
+  # whatever the tests execute.
   badge:
     name: Update coverage badge
     needs: test
@@ -101,8 +86,7 @@ jobs:
     permissions:
       contents: write
 
-    # Shared with release.yml so the two workflows cannot race each other
-    # pushing to main. This is the mechanism the design relies on.
+    # Shared with release.yml so pushes to main cannot race.
     concurrency:
       group: main-writes
       cancel-in-progress: false
@@ -117,8 +101,6 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "uv.lock"
 
-      # Reuse the coverage the test job already measured rather than re-running
-      # the suite to regenerate an identical file.
       - name: Download coverage report
         uses: actions/download-artifact@v8.0.1
         with:
@@ -127,9 +109,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen --all-groups
 
-      # genbadge writes the SVG without a trailing newline, and this job commits
-      # it directly (CI has no pre-commit hooks installed), so end-of-file-fixer
-      # would fail on the next run for everyone else. Add the newline here.
+      # genbadge omits the trailing newline and this job commits the file
+      # directly (no hooks in CI), so end-of-file-fixer would fail on the next
+      # push. Add it here.
       - name: Regenerate the coverage badge
         run: |
           uv run genbadge coverage -i coverage.xml -o badges/coverage.svg

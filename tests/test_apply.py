@@ -59,8 +59,8 @@ class TestApply(BaseEvenniaTestCase):
                 raise RuntimeError("boom")
             return original(entity, index=index, resolve_ref=resolve_ref)
 
-        # A unittest.TestCase cannot take pytest's monkeypatch fixture;
-        # patch.object is the equivalent context manager.
+        # unittest.TestCase cannot take pytest's monkeypatch fixture; patch.object
+        # is the equivalent context manager.
         with mock.patch.object(apply_module, "entity_to_prototype", explode):
             report = apply_plan(plan, index=index, resolve_ref=self._resolver)
         assert not report.ok
@@ -71,10 +71,9 @@ class TestApply(BaseEvenniaTestCase):
         assert find_entity_object("square") is not None
 
     def test_object_in_object_placement_applies_in_one_run(self) -> None:
-        # A unittest.TestCase cannot take pytest's tmp_path fixture; the temp
-        # directory stands in for the content checkout. `coin` is declared
-        # before `chest`, and both are objects, so the kind ordering cannot
-        # save it: only a retry pass can.
+        # unittest.TestCase cannot take pytest's tmp_path fixture; tempfile
+        # stands in. `coin` precedes `chest` and both are objects, so only a
+        # retry pass can place it.
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "c.yaml").write_text(
@@ -119,8 +118,7 @@ class TestApply(BaseEvenniaTestCase):
             assert "@ghost" in (report.results[0].error or "")
 
     def test_update_changes_existing_object(self) -> None:
-        # A unittest.TestCase cannot take pytest's tmp_path fixture; the temp
-        # directory stands in for the editable copy of the corpus.
+        # unittest.TestCase cannot take pytest's tmp_path fixture; tempfile stands in.
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "basic"
             shutil.copytree(CORPUS, root)

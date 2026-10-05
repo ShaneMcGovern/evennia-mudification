@@ -194,8 +194,7 @@ def test_nested_count_with_contents_is_error(tmp_path: Path) -> None:
     assert rats.location == "@hall"
     assert "rats#1" not in index.entities
     assert "flea" not in index.entities
-    # No location ref dangles: the pre-fix bug flattened `flea` pointing at
-    # the base id that expansion then removed.
+    # No location ref dangles after expansion.
     for entity in index.entities.values():
         if isinstance(entity, ObjectEntity) and entity.location is not None:
             assert entity.location.removeprefix("@") in index.entities

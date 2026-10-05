@@ -49,6 +49,6 @@ class TestRunDeferred(BaseEvenniaTestCase):
             deferred.run_deferred(boom)
 
     def test_reactor_running_is_false_in_tests(self) -> None:
-        # No twisted reactor runs under pytest, and reporting that honestly is
-        # what selects the inline path in every other test here.
+        # No reactor runs under pytest; reporting that honestly selects the
+        # inline path in every other test here.
         assert deferred._reactor_running() is False

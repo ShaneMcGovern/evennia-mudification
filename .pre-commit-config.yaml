@@ -1,11 +1,9 @@
 ---
-# Installed by .devcontainer/entrypoint.sh; run in CI by .github/workflows/validate.yml.
+# Installed by entrypoint.sh; run in CI by validate.yml.
 default_install_hook_types: [pre-commit, commit-msg]
 
-# Without this, hooks with no explicit `stages` run at EVERY stage, so the
-# hygiene hooks fire a second time against COMMIT_EDITMSG on each commit - both
-# wasteful and capable of rewriting a commit message. Only
-# conventional-pre-commit opts back in to commit-msg, below.
+# Without this, hooks run at every stage, so the hygiene hooks re-fire against
+# COMMIT_EDITMSG and can rewrite the message being committed.
 default_stages: [pre-commit]
 
 repos:
@@ -16,7 +14,7 @@ repos:
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-json
-        # devcontainer.json is JSONC - comments are valid there, not in JSON.
+        # devcontainer.json is JSONC, where comments are valid.
         exclude: ^\.devcontainer/devcontainer\.json$
       - id: check-toml
       - id: check-merge-conflict
@@ -32,10 +30,8 @@ repos:
       - id: prettier
         # TOML is deliberately absent: prettier cannot parse it without a plugin.
         types_or: [yaml, json]
-        # devcontainer.json is JSONC. .copier-answers.yml is written by copier,
-        # whose to_nice_yaml emits single-quoted strings where prettier wants
-        # double - so without this every `copier update` reintroduces a diff the
-        # hook then fights. The file itself says never to edit it by hand.
+        # devcontainer.json is JSONC; .copier-answers.yml is copier's own
+        # single-quoted output, which prettier would fight on every update.
         exclude: ^(\.devcontainer/devcontainer\.json|\.copier-answers\.yml)$
 
   - repo: https://github.com/shellcheck-py/shellcheck-py
@@ -46,46 +42,28 @@ repos:
   - repo: https://github.com/igorshubovych/markdownlint-cli
     rev: v0.49.1
     hooks:
-      # MD013 (line length) is disabled in .markdownlint.json, not by a flag here.
-      #
-      # CHANGELOG.md is excluded because, where releases are automated,
-      # python-semantic-release generates it and emits two blank lines between
-      # release sections, which trips MD012. The release commit carries
-      # [skip ci], so that lands unchecked and then fails the NEXT push - CI red
-      # after every single release. Its formatting is the generator's to own,
-      # and the docs already say never to edit it by hand. The exclude is kept
-      # unconditionally: it costs nothing when there is no CHANGELOG.md, and
-      # this file has no suffix, so it cannot carry a conditional.
+      # CHANGELOG.md is excluded: python-semantic-release's blank lines trip
+      # MD012, and the release commit carries [skip ci], so the failure would
+      # land on the next push.
       - id: markdownlint-fix
         exclude: ^CHANGELOG\.md$
 
-  # Fails when uv.lock has drifted from pyproject.toml, which is what CI's
-  # `uv sync --frozen` would otherwise discover the hard way.
+  # Fails on lock drift, which CI's `uv sync --frozen` would otherwise hit.
   - repo: https://github.com/astral-sh/uv-pre-commit
     rev: 0.12.7
     hooks:
       - id: uv-lock
 
-  # Enforced at commit time because a bad message is only fixable before the
-  # commit exists. Where releases are automated, python-semantic-release derives
-  # them from these subjects and a non-conventional one does not error - it
-  # silently produces no release. Where they are not, this still keeps the
-  # history readable and leaves the option open.
-  #
-  # commit-msg is the one stage CI cannot run: `pre-commit run --all-files` has
-  # no commit message to check. CONTRIBUTING.md says so rather than implying the
-  # branch is guarded.
+  # A non-conventional subject silently produces no release, so it is caught at
+  # commit time; commit-msg is the one stage CI cannot run.
   - repo: https://github.com/compilerla/conventional-pre-commit
     rev: v4.4.0
     hooks:
       - id: conventional-pre-commit
         stages: [commit-msg]
 
-  # ruff and mypy run from the project environment rather than from pre-commit's
-  # isolated one. For mypy that is necessary: the mirrored hook cannot see
-  # project dependencies and reports false import errors as soon as there are
-  # any. For ruff it removes a second version pin, so `uv run ruff` and this hook
-  # cannot drift apart and enforce different rules.
+  # Local hooks: a mirrored mypy cannot see project dependencies, and ruff stays
+  # one version through uv.lock.
   - repo: local
     hooks:
       - id: ruff-check

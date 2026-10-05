@@ -24,9 +24,8 @@ _META_KEYS = {
 
 _REF_KEYS = ("location", "home", "destination")
 
-# Fields Evennia's object diff gets wrong for declared-subset semantics: the
-# stored forms are canonicalized differently from what the content declares.
-# `declared_diff` compares these two itself.
+# Fields Evennia's diff gets wrong: stored forms are canonicalized differently
+# from the declared ones, so `declared_diff` compares these itself.
 _SELF_COMPARED_KEYS = {"locks", "permissions", "aliases", "tags"}
 
 
@@ -87,14 +86,12 @@ def _normalize_lock(entry: str) -> str:
     return f"{name.strip()}:{value.strip()}"
 
 
+# Evennia canonicalizes these fields on storage (whitespace for locks,
+# stripping and lowercasing for the rest), so the declared side is normalized
+# the same way and compared as a subset: extra live values are kept, and a
+# whole-value comparison would report a phantom update forever.
 def _declared_locks_are_live(lockstring: str, obj: Any) -> bool:
-    """True when every declared lock entry is already on the object.
-
-    Evennia stores the full default lockset plus the declared locks, so
-    comparing the declared string against ``obj.locks.all()`` as a whole would
-    report a phantom update forever after apply. Declared-subset semantics:
-    every declared entry must be present, and extra live locks are kept.
-    """
+    """True when every declared lock entry is already on the object."""
     live = {_normalize_lock(entry) for entry in obj.locks.all()}
     declared = [
         _normalize_lock(entry) for entry in lockstring.split(";") if entry.strip()
@@ -103,32 +100,19 @@ def _declared_locks_are_live(lockstring: str, obj: Any) -> bool:
 
 
 def _declared_permissions_are_live(permissions: list[str], obj: Any) -> bool:
-    """True when every declared permission is already on the object.
-
-    Evennia strips and lowercases permissions on add, so a declared
-    ``Builders`` must be compared case-insensitively against
-    ``obj.permissions.all()``. Declared entries are added; live ones the
-    content no longer declares are kept.
-    """
+    """True when every declared permission is already on the object."""
     live = {str(permission).lower() for permission in obj.permissions.all()}
     return all(str(permission).strip().lower() in live for permission in permissions)
 
 
 def _declared_aliases_are_live(aliases: list[str], obj: Any) -> bool:
-    """Declared aliases are unchanged when each exists live.
-
-    Evennia's `TagHandler.add` strips and lowercases aliases before storing
-    them, so the declared side is normalized the same way.
-    """
+    """Declared aliases are unchanged when each exists live."""
     live = {alias.strip().lower() for alias in obj.aliases.all()}
     return all(alias.strip().lower() in live for alias in aliases)
 
 
 def _declared_tags_are_live(tags: list[Any], obj: Any) -> bool:
-    """Declared tags are unchanged when each (key, category) exists live.
-
-    Both sides are stripped and lowercased, matching `TagHandler.add`.
-    """
+    """Declared tags are unchanged when each (key, category) exists live."""
     live = {
         (key.strip().lower(), (category or "").strip().lower())
         for key, category in obj.tags.all(return_key_and_category=True)
