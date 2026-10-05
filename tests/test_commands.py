@@ -12,8 +12,9 @@ from evennia.prototypes import spawner
 from evennia.utils import create
 from evennia.utils.test_resources import BaseEvenniaTestCase
 
-from evennia_mudification import runtime
+from evennia_mudification import deferred, runtime
 from evennia_mudification.commands import CmdMudification
+from evennia_mudification.identity import find_entity_object
 
 CORPUS = Path(__file__).parent / "fixtures" / "corpus" / "basic"
 
@@ -111,6 +112,17 @@ class TestCmdMudification(BaseEvenniaTestCase):
                 output = self._run(self._caller(), "validate")
         assert "dangling-ref" in output
 
+    def test_load_registers_prototypes(self) -> None:
+        caller = self._caller()
+        with (
+            self._settings(),
+            mock.patch(
+                "evennia_mudification.commands.register_prototypes", return_value=0
+            ) as mocked,
+        ):
+            self._run(caller, "validate")
+        assert mocked.call_count == 1
+
     def test_missing_content_path(self) -> None:
         with self.settings(MUDIFICATION_CONTENT_PATH=None):
             output = self._run(self._caller(), "validate")
@@ -163,6 +175,60 @@ class TestCmdMudification(BaseEvenniaTestCase):
             output = self._run(caller, "status")
         assert "4 entities" in output
         assert "managed entities in the database: 0" in output
+
+    def test_status_reports_last_applied_after_apply(self) -> None:
+        caller = self._caller()
+        with self._settings(), mock.patch.object(runtime, "LAST_APPLIED", None):
+            before = self._run(caller, "status")
+            assert "last applied" not in before
+            self._run(caller, "apply confirm")
+            after = self._run(caller, "status")
+            assert "last applied: 4 entities" in after
+
+    def test_apply_deferred_when_reactor_running(self) -> None:
+        caller = self._caller()
+        with (
+            self._settings(),
+            mock.patch.object(deferred, "_reactor_running", return_value=True),
+            mock.patch("evennia.utils.utils.run_async") as run_async_mock,
+        ):
+            output = self._run(caller, "apply confirm")
+        assert "applying off-thread" in output
+        assert run_async_mock.call_count == 1
+
+    def test_prune_reports_then_confirms(self) -> None:
+        caller = self._caller()
+        with self._settings():
+            self._run(caller, "apply confirm")
+        with tempfile.TemporaryDirectory() as directory:
+            Path(directory, "c.yaml").write_text(
+                "schema_version: 1\nentities:\n"
+                "  - id: inn\n    kind: room\n    key: The Wayfarer's Inn\n",
+                encoding="utf-8",
+            )
+            with self.settings(MUDIFICATION_CONTENT_PATH=directory):
+                output = self._run(caller, "prune")
+                assert "retire square" in output
+                assert "prune confirm" in output
+                assert find_entity_object("square") is not None  # preview only
+                output = self._run(caller, "prune confirm")
+        assert "destroy square: ok" in output
+        assert "destroy signpost: ok" in output
+
+    def test_prune_with_nothing_to_retire(self) -> None:
+        caller = self._caller()
+        with self._settings():
+            self._run(caller, "apply confirm")
+            output = self._run(caller, "prune")
+        assert "no retirements" in output
+
+    def test_status_reports_retirements_and_sources(self) -> None:
+        caller = self._caller()
+        with self._settings():
+            self._run(caller, "validate")
+            output = self._run(caller, "status")
+        assert "retirements: 0" in output
+        assert "source bundles: 1" in output
 
 
 class TestValidateOnStart(BaseEvenniaTestCase):

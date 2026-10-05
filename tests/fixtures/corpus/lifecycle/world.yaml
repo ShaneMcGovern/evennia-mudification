@@ -1,0 +1,42 @@
+schema_version: 1
+zone: keep
+entities:
+  - id: hall
+    kind: room
+    key: The Great Hall
+    contents:
+      - id: chest
+        kind: object
+        key: a heavy chest
+        attrs:
+          desc: Iron-bound oak.
+        contents:
+          - id: coin
+            kind: object
+            key: a gold coin
+  - id: cellar
+    kind: room
+    key: the cellar
+  - id: hall-cellar
+    kind: exit
+    key: cellar stairs
+    location: "@hall"
+    destination: "@cellar"
+    reverse: true
+  - id: rats
+    kind: object
+    key: a sewer rat
+    count: 3
+    attrs:
+      desc: It squeaks.
+  - id: goblin_tpl
+    kind: prototype
+    key: goblin template
+    typeclass: evennia.objects.objects.DefaultObject
+    attrs:
+      hp: 5
+  - id: goblin_guard
+    kind: object
+    key: the goblin guard
+    prototype: "@goblin_tpl"
+    location: "@hall"

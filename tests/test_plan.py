@@ -4,7 +4,6 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-import pytest
 from evennia.prototypes.spawner import spawn
 from evennia.utils import create
 from evennia.utils.test_resources import BaseEvenniaTestCase
@@ -12,7 +11,7 @@ from evennia.utils.test_resources import BaseEvenniaTestCase
 from evennia_mudification.apply import apply_plan
 from evennia_mudification.compile import ContentIndex, compile_documents
 from evennia_mudification.identity import ENTITY_TAG_CATEGORY
-from evennia_mudification.plan import Plan, UnsupportedEntityError, build_plan
+from evennia_mudification.plan import Plan, build_plan
 from evennia_mudification.proto import entity_to_prototype
 from evennia_mudification.source import LocalDirectorySource
 
@@ -54,17 +53,17 @@ class TestPlan(BaseEvenniaTestCase):
         plan = build_plan(self._index(), resolve_ref=self._resolver)
         assert plan.retirements == {"rogue"}
 
-    def test_prototype_entities_are_unsupported(self) -> None:
-        # tmp_path cannot be injected into a unittest.TestCase method; an
-        # absolute scratch directory is what the brief's tmp_path stood for.
+    def test_prototype_entities_are_skipped(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "c.yaml").write_text(
                 "schema_version: 1\nentities:\n"
                 "  - id: tpl\n    kind: prototype\n    key: tpl\n"
+                "  - id: room\n    kind: room\n    key: room\n"
             )
-            with pytest.raises(UnsupportedEntityError):
-                build_plan(self._index(root), resolve_ref=self._resolver)
+            plan = build_plan(self._index(root), resolve_ref=self._resolver)
+        assert {change.entity_id for change in plan.changes} == {"room"}
+        assert plan.retirements == set()
 
     def test_render_lists_creates(self) -> None:
         plan = build_plan(self._index(), resolve_ref=self._resolver)
@@ -200,4 +199,84 @@ class TestPlan(BaseEvenniaTestCase):
             assert set(plan4.changes[0].diff) == {"permissions"}
             assert apply_plan(plan4, index=index4, resolve_ref=self._resolver).ok
             assert "admins" in hall.permissions.all()
+            assert build_plan(self._index(root), resolve_ref=self._resolver).is_empty()
+
+    def test_mixed_case_aliases_tags_and_padded_permissions_stay_idempotent(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "hall.yaml").write_text(
+                "schema_version: 1\nentities:\n"
+                "  - id: hall\n    kind: room\n    key: The hall\n"
+                "    aliases: [Hall, GREAT-HALL]\n"
+                "    permissions:\n      - ' Builders '\n"
+                "    tags:\n      Great: Zone\n",
+                encoding="utf-8",
+            )
+            index = self._index(root)
+            plan = build_plan(index, resolve_ref=self._resolver)
+            assert apply_plan(plan, index=index, resolve_ref=self._resolver).ok
+            # Evennia stored aliases, tags and permissions stripped and
+            # lowercased; declared-subset comparison must see no change.
+            assert build_plan(self._index(root), resolve_ref=self._resolver).is_empty()
+
+    def test_changed_alias_is_reported(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            content = root / "hall.yaml"
+            content.write_text(
+                "schema_version: 1\nentities:\n"
+                "  - id: hall\n    kind: room\n    key: The hall\n"
+                "    aliases: [great-hall]\n",
+                encoding="utf-8",
+            )
+            index = self._index(root)
+            assert apply_plan(
+                build_plan(index, resolve_ref=self._resolver),
+                index=index,
+                resolve_ref=self._resolver,
+            ).ok
+
+            content.write_text(
+                "schema_version: 1\nentities:\n"
+                "  - id: hall\n    kind: room\n    key: The hall\n"
+                "    aliases: [great-hall, throne-room]\n",
+                encoding="utf-8",
+            )
+            index2 = self._index(root)
+            plan = build_plan(index2, resolve_ref=self._resolver)
+            assert [change.entity_id for change in plan.changes] == ["hall"]
+            assert set(plan.changes[0].diff) == {"aliases"}
+            assert apply_plan(plan, index=index2, resolve_ref=self._resolver).ok
+            assert build_plan(self._index(root), resolve_ref=self._resolver).is_empty()
+
+    def test_changed_declared_tag_is_reported(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            content = root / "hall.yaml"
+            content.write_text(
+                "schema_version: 1\nentities:\n"
+                "  - id: hall\n    kind: room\n    key: The hall\n"
+                "    tags:\n      Great: Zone\n",
+                encoding="utf-8",
+            )
+            index = self._index(root)
+            assert apply_plan(
+                build_plan(index, resolve_ref=self._resolver),
+                index=index,
+                resolve_ref=self._resolver,
+            ).ok
+
+            content.write_text(
+                "schema_version: 1\nentities:\n"
+                "  - id: hall\n    kind: room\n    key: The hall\n"
+                "    tags:\n      Great: Zone\n      Throne: Zone\n",
+                encoding="utf-8",
+            )
+            index2 = self._index(root)
+            plan = build_plan(index2, resolve_ref=self._resolver)
+            assert [change.entity_id for change in plan.changes] == ["hall"]
+            assert set(plan.changes[0].diff) == {"tags"}
+            assert apply_plan(plan, index=index2, resolve_ref=self._resolver).ok
             assert build_plan(self._index(root), resolve_ref=self._resolver).is_empty()

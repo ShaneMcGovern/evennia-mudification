@@ -24,6 +24,101 @@ def _resolver(ref: str) -> Any:
     return {"ref": ref}
 
 
+class TestPrototypeTemplates(BaseEvenniaTestCase):
+    def test_registration_makes_template_spawnable(self) -> None:
+        from evennia_mudification.proto import register_prototypes
+
+        index = _index_from(
+            {
+                "schema_version": 1,
+                "entities": [
+                    {
+                        "id": "tpl",
+                        "kind": "prototype",
+                        "key": "goblin template",
+                        "typeclass": "evennia.objects.objects.DefaultObject",
+                        "attrs": {"hp": 5},
+                    }
+                ],
+            }
+        )
+        assert register_prototypes(index) == 1
+        # spawn() accepts a registered prototype key directly.
+        (obj,) = spawn("tpl")
+        assert obj.db.hp == 5
+        obj.delete()
+
+    def test_registration_without_templates_is_a_noop(self) -> None:
+        from evennia_mudification.proto import register_prototypes
+
+        index = _index_from(
+            {
+                "schema_version": 1,
+                "entities": [{"id": "a", "kind": "room", "key": "a"}],
+            }
+        )
+        assert register_prototypes(index) == 0
+
+    def test_child_object_inherits_template_values(self) -> None:
+        from evennia_mudification.proto import register_prototypes
+
+        index = _index_from(
+            {
+                "schema_version": 1,
+                "entities": [
+                    {
+                        "id": "tpl",
+                        "kind": "prototype",
+                        "key": "goblin template",
+                        "typeclass": "evennia.objects.objects.DefaultObject",
+                        "attrs": {"hp": 5},
+                    },
+                    {
+                        "id": "guard",
+                        "kind": "object",
+                        "key": "a guard",
+                        "prototype": "@tpl",
+                    },
+                ],
+            }
+        )
+        register_prototypes(index)
+        prototype = entity_to_prototype(
+            index.entities["guard"], index=index, resolve_ref=_resolver
+        )
+        assert prototype["prototype_parent"] == "tpl"
+        assert "typeclass" not in prototype  # the template supplies it
+        (obj,) = spawn(prototype)
+        assert obj.db.hp == 5
+        # The template's engine bookkeeping tags must not leak onto the child;
+        # the child carries its own.
+        live_tags = obj.tags.all(return_key_and_category=True)
+        assert ("tpl", ENTITY_TAG_CATEGORY) not in live_tags
+        assert ("guard", ENTITY_TAG_CATEGORY) in live_tags
+        obj.delete()
+
+    def test_declared_typeclass_wins_over_template(self) -> None:
+        index = _index_from(
+            {
+                "schema_version": 1,
+                "entities": [
+                    {"id": "tpl", "kind": "prototype", "key": "tpl"},
+                    {
+                        "id": "guard",
+                        "kind": "object",
+                        "key": "a guard",
+                        "prototype": "@tpl",
+                        "typeclass": "evennia.objects.objects.DefaultCharacter",
+                    },
+                ],
+            }
+        )
+        prototype = entity_to_prototype(
+            index.entities["guard"], index=index, resolve_ref=_resolver
+        )
+        assert prototype["typeclass"] == "evennia.objects.objects.DefaultCharacter"
+
+
 class TestProto(BaseEvenniaTestCase):
     def test_room_defaults_and_tags(self) -> None:
         index = _index_from(
