@@ -7,6 +7,14 @@ below the marker on each release.
 
 <!-- version list -->
 
+## v0.3.0 (2026-10-05)
+
+### Documentation
+
+- Add the author guide: the content model, every field and the finding codes
+- Rewrite the README with installation, usage, examples, settings and commands
+- Reconcile CONTRIBUTING with the repository's layout and workflows
+
 ## v0.2.0 (2026-10-04)
 
 ### Features
