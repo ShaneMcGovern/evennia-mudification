@@ -1,0 +1,413 @@
+{
+  "$defs": {
+    "ExitEntity": {
+      "additionalProperties": false,
+      "description": "An exit between two rooms.",
+      "properties": {
+        "id": {
+          "pattern": "^[a-z0-9][a-z0-9_-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "typeclass": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Typeclass"
+        },
+        "aliases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "array"
+        },
+        "attrs": {
+          "additionalProperties": true,
+          "title": "Attrs",
+          "type": "object"
+        },
+        "tags": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "object"
+        },
+        "locks": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Locks",
+          "type": "object"
+        },
+        "permissions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Permissions",
+          "type": "array"
+        },
+        "desc": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Desc"
+        },
+        "kind": {
+          "const": "exit",
+          "title": "Kind",
+          "type": "string"
+        },
+        "location": {
+          "pattern": "^@[a-z0-9][a-z0-9_-]*$",
+          "title": "Location",
+          "type": "string"
+        },
+        "destination": {
+          "pattern": "^@[a-z0-9][a-z0-9_-]*$",
+          "title": "Destination",
+          "type": "string"
+        }
+      },
+      "required": ["id", "key", "kind", "location", "destination"],
+      "title": "ExitEntity",
+      "type": "object"
+    },
+    "ObjectEntity": {
+      "additionalProperties": false,
+      "description": "A plain object; `location` may be a room or another object.",
+      "properties": {
+        "id": {
+          "pattern": "^[a-z0-9][a-z0-9_-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "typeclass": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Typeclass"
+        },
+        "aliases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "array"
+        },
+        "attrs": {
+          "additionalProperties": true,
+          "title": "Attrs",
+          "type": "object"
+        },
+        "tags": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "object"
+        },
+        "locks": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Locks",
+          "type": "object"
+        },
+        "permissions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Permissions",
+          "type": "array"
+        },
+        "desc": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Desc"
+        },
+        "kind": {
+          "const": "object",
+          "title": "Kind",
+          "type": "string"
+        },
+        "location": {
+          "anyOf": [
+            {
+              "pattern": "^@[a-z0-9][a-z0-9_-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Location"
+        },
+        "home": {
+          "anyOf": [
+            {
+              "pattern": "^@[a-z0-9][a-z0-9_-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Home"
+        }
+      },
+      "required": ["id", "key", "kind"],
+      "title": "ObjectEntity",
+      "type": "object"
+    },
+    "PrototypeEntity": {
+      "additionalProperties": false,
+      "description": "A reusable template; applied in a later milestone.",
+      "properties": {
+        "id": {
+          "pattern": "^[a-z0-9][a-z0-9_-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "typeclass": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Typeclass"
+        },
+        "aliases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "array"
+        },
+        "attrs": {
+          "additionalProperties": true,
+          "title": "Attrs",
+          "type": "object"
+        },
+        "tags": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "object"
+        },
+        "locks": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Locks",
+          "type": "object"
+        },
+        "permissions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Permissions",
+          "type": "array"
+        },
+        "desc": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Desc"
+        },
+        "kind": {
+          "const": "prototype",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": ["id", "key", "kind"],
+      "title": "PrototypeEntity",
+      "type": "object"
+    },
+    "RoomEntity": {
+      "additionalProperties": false,
+      "description": "A room.",
+      "properties": {
+        "id": {
+          "pattern": "^[a-z0-9][a-z0-9_-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "typeclass": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Typeclass"
+        },
+        "aliases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "array"
+        },
+        "attrs": {
+          "additionalProperties": true,
+          "title": "Attrs",
+          "type": "object"
+        },
+        "tags": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "object"
+        },
+        "locks": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Locks",
+          "type": "object"
+        },
+        "permissions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Permissions",
+          "type": "array"
+        },
+        "desc": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Desc"
+        },
+        "kind": {
+          "const": "room",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": ["id", "key", "kind"],
+      "title": "RoomEntity",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One YAML file's worth of content.",
+  "properties": {
+    "schema_version": {
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "zone": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Zone"
+    },
+    "entities": {
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "exit": "#/$defs/ExitEntity",
+            "object": "#/$defs/ObjectEntity",
+            "prototype": "#/$defs/PrototypeEntity",
+            "room": "#/$defs/RoomEntity"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/RoomEntity"
+          },
+          {
+            "$ref": "#/$defs/ExitEntity"
+          },
+          {
+            "$ref": "#/$defs/ObjectEntity"
+          },
+          {
+            "$ref": "#/$defs/PrototypeEntity"
+          }
+        ]
+      },
+      "title": "Entities",
+      "type": "array"
+    }
+  },
+  "required": ["schema_version", "entities"],
+  "title": "Mudification content bundle",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

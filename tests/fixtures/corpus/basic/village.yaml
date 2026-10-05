@@ -1,0 +1,27 @@
+schema_version: 1
+zone: village
+entities:
+  - id: square
+    kind: room
+    key: The village square
+    desc: |
+      A well-worn square.
+  - id: inn
+    kind: room
+    key: The Wayfarer's Inn
+  - id: square-inn
+    kind: exit
+    key: inn door
+    aliases: [in]
+    location: "@square"
+    destination: "@inn"
+  - id: signpost
+    kind: object
+    key: a wooden signpost
+    location: "@square"
+    locks:
+      get: "false()"
+    permissions:
+      - Builders
+    attrs:
+      desc: Points in four directions.

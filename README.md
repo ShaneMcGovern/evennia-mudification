@@ -1,13 +1,13 @@
-# Evennia Mudification
+# evennia-mudification
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.13.15](https://img.shields.io/badge/python-3.13.15-blue.svg)](https://www.python.org/downloads/)
-[![Validate](https://github.com/ShaneMcGovern/evennia-mudification/actions/workflows/validate.yml/badge.svg)](https://github.com/ShaneMcGovern/evennia-mudification/actions/workflows/validate.yml)
+[![Validate](https://github.com/ShaneMcGovern/evennia-mudification/actions/workflows/validate.yml/badge.svg?event=pull_request)](https://github.com/ShaneMcGovern/evennia-mudification/actions/workflows/validate.yml)
 [![Coverage](badges/coverage.svg)](badges/coverage.svg)
 [![uv](https://img.shields.io/badge/uv-package%20manager-green.svg)](https://github.com/astral-sh/uv)
 [![Ruff](https://img.shields.io/badge/ruff-linted-261230.svg)](https://github.com/astral-sh/ruff)
 
-A Python project.
+A YAML-defined world content engine for Evennia, and the game built on it.
 
 Generated from the
 [mcgov-python-template](https://github.com/ShaneMcGovern/probable-tribble) Copier
@@ -105,18 +105,14 @@ Once the container is running:
 # Run the tests, with coverage
 uv run pytest
 
-# Run the application
-uv run python -m main
-# Output: Hello from evennia-mudification!
+# Validate YAML world content
+uv run mudification validate tests/fixtures/corpus/basic
 
 # Run every hook, exactly as CI runs them
 uv run pre-commit run --all-files
 ```
 
-`python -m main` works inside the container because `PYTHONPATH=/app/src` is set
-in `compose.yaml`. Outside it, pass the path yourself:
-`PYTHONPATH=src uv run python -m main`. This project isn't a package, so `src/`
-is not installed and nothing puts it on `sys.path` for you.
+The `mudification` command is installed into the environment by `uv sync`.
 
 The everyday commands for changing the project - linting, type checking, adding
 a dependency, and the full hook list - are in
@@ -126,32 +122,36 @@ a dependency, and the full hook list - are in
 
 Two workflows, both in `.github/workflows/`.
 
-**`validate.yml`** runs on every branch push and on PRs to `main`:
+**`validate.yml`** runs on PRs to `main` only. It is the gate: nothing reaches
+`main` without a green run, so it deliberately does not re-run on the merge
+itself.
 
 1. `pre-commit` - every hook, across all files.
-2. `test` - pytest, uploading `coverage.xml` as an artifact.
-3. `badge` - on `main` only, regenerates `badges/coverage.svg` from that
-   artifact and commits it if it changed.
+2. `test` - pytest.
 
-**`release.yml`** runs on pushes to `main` and hands off to
-python-semantic-release, which reads its configuration from `pyproject.toml`.
-Releases are derived from commit messages, so the type prefix decides what
-happens; [CONTRIBUTING.md](CONTRIBUTING.md) has the vocabulary and which
-prefixes ship a release.
+**`release.yml`** runs on pushes to `main` with two jobs. `release` first
+verifies that the pushed commit arrived through a PR whose Validate run was
+green - the repository's plan has no required status checks, so this is what
+enforces the gate - then hands off to python-semantic-release, which reads its
+configuration from `pyproject.toml`. Releases are derived from commit messages,
+so the type prefix decides what happens; [CONTRIBUTING.md](CONTRIBUTING.md) has
+the vocabulary and which prefixes ship a release.
 
 On a release, python-semantic-release bumps the version in `pyproject.toml`
 (the only place it appears), inserts the new entry into `CHANGELOG.md` below its
 `<!-- version list -->` marker, re-locks `uv.lock` so its recorded version
 follows, tags, and publishes a GitHub Release.
 
-No distribution artifacts are built or published; nothing installs this repo.
-`build_command` runs `uv lock` instead, so that `uv.lock`'s recorded project
-version follows the bump PSR just wrote into `pyproject.toml`; `assets` carries
-the regenerated lock into the release commit. Without that, every release left
-the lock stale and the `uv-lock` hook failed on the next push.
+Nothing is published to an index yet, but the package is installed into the
+environment by `uv sync`. `build_command` runs `uv lock` so that `uv.lock`'s
+recorded project version follows the bump PSR just wrote into `pyproject.toml`;
+`assets` carries the regenerated lock into the release commit. Without that,
+every release left the lock stale and the `uv-lock` hook failed on the next
+push.
 
-The `badge` job and `release.yml` share a `concurrency` group, so they can't
-race each other pushing to `main`.
+The `badge` job regenerates `badges/coverage.svg` from a fresh run of the suite
+and commits it if it changed. Both jobs share a `concurrency` group, so they
+can't race each other pushing to `main`.
 
 ## Updating from the Template
 
@@ -185,9 +185,9 @@ in. Read it before updating across several versions at once.
 
 ```text
 .devcontainer/       Dockerfile, compose, entrypoint, VS Code wiring
-.github/workflows/   validate.yml (gate) and release.yml (semantic release)
+.github/workflows/   validate.yml (gate) and release.yml (release + badge)
 badges/              coverage.svg, regenerated by CI on main
-src/main.py          the application entry point
+src/evennia_mudification/  the engine package
 tests/               the test suite
 ```
 
