@@ -4,7 +4,14 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from evennia_mudification.models import Bundle, RoomEntity, ref_target
+from evennia_mudification.models import (
+    Bundle,
+    ExitEntity,
+    ObjectEntity,
+    ReverseOverride,
+    RoomEntity,
+    ref_target,
+)
 
 VALID = {
     "schema_version": 1,
@@ -101,5 +108,84 @@ def test_exit_requires_location_and_destination() -> None:
 
 def test_unsupported_schema_version_rejected() -> None:
     bad = {"schema_version": 99, "entities": []}
+    with pytest.raises(ValidationError):
+        Bundle.model_validate(bad)
+
+
+def test_reverse_accepts_bool_and_override() -> None:
+    base = {
+        "schema_version": 1,
+        "entities": [
+            {"id": "a", "kind": "room", "key": "a"},
+            {"id": "b", "kind": "room", "key": "b"},
+            {
+                "id": "x",
+                "kind": "exit",
+                "key": "x",
+                "location": "@a",
+                "destination": "@b",
+                "reverse": True,
+            },
+            {
+                "id": "y",
+                "kind": "exit",
+                "key": "y",
+                "location": "@a",
+                "destination": "@b",
+                "reverse": {"key": "back", "aliases": ["return"]},
+            },
+        ],
+    }
+    bundle = Bundle.model_validate(base)
+    plain_reverse = bundle.entities[2]
+    assert isinstance(plain_reverse, ExitEntity)
+    assert plain_reverse.reverse is True
+    overridden = bundle.entities[3]
+    assert isinstance(overridden, ExitEntity)
+    assert isinstance(overridden.reverse, ReverseOverride)
+    assert overridden.reverse.key == "back"
+
+
+def test_count_must_be_positive() -> None:
+    bad = {
+        "schema_version": 1,
+        "entities": [{"id": "r", "kind": "object", "key": "r", "count": 0}],
+    }
+    with pytest.raises(ValidationError):
+        Bundle.model_validate(bad)
+
+
+def test_contents_recursion_parses() -> None:
+    nested = {
+        "schema_version": 1,
+        "entities": [
+            {
+                "id": "hall",
+                "kind": "room",
+                "key": "hall",
+                "contents": [
+                    {
+                        "id": "chest",
+                        "kind": "object",
+                        "key": "chest",
+                        "contents": [{"id": "coin", "kind": "object", "key": "coin"}],
+                    }
+                ],
+            }
+        ],
+    }
+    bundle = Bundle.model_validate(nested)
+    hall = bundle.entities[0]
+    assert isinstance(hall, RoomEntity)
+    chest = hall.contents[0]
+    assert isinstance(chest, ObjectEntity)
+    assert chest.contents[0].id == "coin"
+
+
+def test_prototype_ref_must_be_a_ref() -> None:
+    bad = {
+        "schema_version": 1,
+        "entities": [{"id": "g", "kind": "object", "key": "g", "prototype": "goblin"}],
+    }
     with pytest.raises(ValidationError):
         Bundle.model_validate(bad)
