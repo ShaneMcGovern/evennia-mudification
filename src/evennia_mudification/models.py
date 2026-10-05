@@ -28,10 +28,20 @@ class EntityBase(BaseModel):
     desc: str | None = None
 
 
+class ReverseOverride(BaseModel):
+    """Overrides for a synthesized reverse exit."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str | None = None
+    aliases: list[str] = Field(default_factory=list)
+
+
 class RoomEntity(EntityBase):
     """A room."""
 
     kind: Literal["room"]
+    contents: list[Entity] = Field(default_factory=list)
 
 
 class ExitEntity(EntityBase):
@@ -40,6 +50,7 @@ class ExitEntity(EntityBase):
     kind: Literal["exit"]
     location: Ref
     destination: Ref
+    reverse: bool | ReverseOverride | None = None
 
 
 class ObjectEntity(EntityBase):
@@ -48,10 +59,13 @@ class ObjectEntity(EntityBase):
     kind: Literal["object"]
     location: Ref | None = None
     home: Ref | None = None
+    count: int | None = Field(default=None, ge=1)
+    prototype: Ref | None = None
+    contents: list[Entity] = Field(default_factory=list)
 
 
 class PrototypeEntity(EntityBase):
-    """A reusable template; applied in a later milestone."""
+    """A reusable template other entities reference with ``prototype``."""
 
     kind: Literal["prototype"]
 
@@ -84,3 +98,6 @@ class Bundle(BaseModel):
 def ref_target(ref: str) -> str:
     """Return the entity id a `@ref` points at."""
     return ref[1:]
+
+
+Bundle.model_rebuild()

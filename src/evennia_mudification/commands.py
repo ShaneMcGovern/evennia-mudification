@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -11,10 +13,13 @@ from evennia.commands.command import Command
 from evennia_mudification import runtime
 from evennia_mudification.apply import apply_plan
 from evennia_mudification.compile import ContentIndex
+from evennia_mudification.deferred import run_deferred
 from evennia_mudification.identity import find_entity_object, managed_ids
 from evennia_mudification.loading import load_content
 from evennia_mudification.models import ref_target
 from evennia_mudification.plan import build_plan
+from evennia_mudification.proto import register_prototypes
+from evennia_mudification.prune import execute_prune, plan_prune, resolve_fallback
 
 
 class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typed
@@ -26,6 +31,8 @@ class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typ
       mudification plan
       mudification apply
       mudification apply confirm
+      mudification prune
+      mudification prune confirm
       mudification status
     """
 
@@ -47,12 +54,14 @@ class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typ
                 self.msg(build_plan(index, resolve_ref=self._resolve_ref).render())
         elif subcommand == "apply":
             self._apply(confirm=len(args) > 1 and args[1] == "confirm")
+        elif subcommand == "prune":
+            self._prune(confirm=len(args) > 1 and args[1] == "confirm")
         elif subcommand == "status":
             self._status()
         else:
             self.msg(
-                f"unknown subcommand '{subcommand}'; try validate, plan, apply "
-                "or status."
+                f"unknown subcommand '{subcommand}'; try validate, plan, apply, "
+                "prune or status."
             )
 
     def _load(self) -> ContentIndex | None:
@@ -75,6 +84,7 @@ class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typ
             return None
         # Every successful load is also the latest validation, so `status`
         # reports what this run saw.
+        register_prototypes(index)
         runtime.LAST_VALIDATION = runtime.ValidationSummary(
             content_path=str(content_path),
             entity_count=len(index.entities),
@@ -100,12 +110,55 @@ class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typ
             self.msg(plan.render())
             self.msg("run 'mudification apply confirm' to apply these changes.")
             return
-        report = apply_plan(
-            plan, index=index, resolve_ref=self._resolve_ref, caller=self.caller
+        deferred = run_deferred(
+            partial(
+                apply_plan,
+                plan,
+                index=index,
+                resolve_ref=self._resolve_ref,
+                caller=self.caller,
+            ),
+            at_return=partial(self._report_applied, entity_count=len(index.entities)),
+            at_err=self._report_failed("apply"),
         )
+        if deferred:
+            self.msg("applying off-thread; results will follow.")
+
+    def _report_applied(self, report: Any, *, entity_count: int) -> None:
         self.msg(report.render())
         if not report.ok:
             self.msg("some entities failed; fix the content and re-run apply.")
+        else:
+            runtime.LAST_APPLIED = entity_count
+
+    def _report_failed(self, action: str) -> Callable[[Exception], None]:
+        def _inner(err: Exception) -> None:
+            get_message = getattr(err, "getErrorMessage", None)
+            message = get_message() if get_message is not None else str(err)
+            self.msg(f"{action} failed: {message}")
+
+        return _inner
+
+    def _prune(self, *, confirm: bool) -> None:
+        index = self._load()
+        if index is None:
+            return
+        fallback = resolve_fallback()
+        prune_plan = plan_prune(managed_ids() - set(index.entities), fallback=fallback)
+        if prune_plan.errors:
+            self.msg(prune_plan.render())
+            return
+        if not confirm:
+            self.msg(prune_plan.render())
+            self.msg("run 'mudification prune confirm' to execute these changes.")
+            return
+        deferred = run_deferred(
+            partial(execute_prune, prune_plan),
+            at_return=lambda report: self.msg(report.render()),
+            at_err=self._report_failed("prune"),
+        )
+        if deferred:
+            self.msg("pruning off-thread; results will follow.")
 
     def _status(self) -> None:
         summary = runtime.LAST_VALIDATION
@@ -118,3 +171,15 @@ class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typ
                 f"{len(summary.warnings)} warnings)"
             )
         self.msg(f"managed entities in the database: {len(managed_ids())}")
+        if runtime.LAST_APPLIED is not None:
+            self.msg(f"last applied: {runtime.LAST_APPLIED} entities")
+        content_path = getattr(settings, "MUDIFICATION_CONTENT_PATH", None)
+        if content_path:
+            index, findings = load_content(Path(content_path), check_evennia=False)
+            errors = [finding for finding in findings if finding.severity == "error"]
+            if errors:
+                for finding in errors:
+                    self.msg(finding.render())
+            else:
+                self.msg(f"retirements: {len(managed_ids() - set(index.entities))}")
+                self.msg(f"source bundles: {len(index.sources)}")

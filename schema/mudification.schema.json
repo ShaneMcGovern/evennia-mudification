@@ -84,6 +84,21 @@
           "pattern": "^@[a-z0-9][a-z0-9_-]*$",
           "title": "Destination",
           "type": "string"
+        },
+        "reverse": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/$defs/ReverseOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reverse"
         }
       },
       "required": ["id", "key", "kind", "location", "destination"],
@@ -190,6 +205,61 @@
           ],
           "default": null,
           "title": "Home"
+        },
+        "count": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Count"
+        },
+        "prototype": {
+          "anyOf": [
+            {
+              "pattern": "^@[a-z0-9][a-z0-9_-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prototype"
+        },
+        "contents": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "exit": "#/$defs/ExitEntity",
+                "object": "#/$defs/ObjectEntity",
+                "prototype": "#/$defs/PrototypeEntity",
+                "room": "#/$defs/RoomEntity"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/RoomEntity"
+              },
+              {
+                "$ref": "#/$defs/ExitEntity"
+              },
+              {
+                "$ref": "#/$defs/ObjectEntity"
+              },
+              {
+                "$ref": "#/$defs/PrototypeEntity"
+              }
+            ]
+          },
+          "title": "Contents",
+          "type": "array"
         }
       },
       "required": ["id", "key", "kind"],
@@ -198,7 +268,7 @@
     },
     "PrototypeEntity": {
       "additionalProperties": false,
-      "description": "A reusable template; applied in a later milestone.",
+      "description": "A reusable template other entities reference with ``prototype``.",
       "properties": {
         "id": {
           "pattern": "^[a-z0-9][a-z0-9_-]*$",
@@ -276,6 +346,33 @@
       "title": "PrototypeEntity",
       "type": "object"
     },
+    "ReverseOverride": {
+      "additionalProperties": false,
+      "description": "Overrides for a synthesized reverse exit.",
+      "properties": {
+        "key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Key"
+        },
+        "aliases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "array"
+        }
+      },
+      "title": "ReverseOverride",
+      "type": "object"
+    },
     "RoomEntity": {
       "additionalProperties": false,
       "description": "A room.",
@@ -350,6 +447,35 @@
           "const": "room",
           "title": "Kind",
           "type": "string"
+        },
+        "contents": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "exit": "#/$defs/ExitEntity",
+                "object": "#/$defs/ObjectEntity",
+                "prototype": "#/$defs/PrototypeEntity",
+                "room": "#/$defs/RoomEntity"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/RoomEntity"
+              },
+              {
+                "$ref": "#/$defs/ExitEntity"
+              },
+              {
+                "$ref": "#/$defs/ObjectEntity"
+              },
+              {
+                "$ref": "#/$defs/PrototypeEntity"
+              }
+            ]
+          },
+          "title": "Contents",
+          "type": "array"
         }
       },
       "required": ["id", "key", "kind"],

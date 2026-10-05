@@ -14,18 +14,20 @@ from evennia_mudification.proto import RefResolver, entity_to_prototype
 
 Action = Literal["create", "update"]
 
-_META_KEYS = {"prototype_key", "prototype_desc", "prototype_tags", "prototype_locks"}
+_META_KEYS = {
+    "prototype_key",
+    "prototype_desc",
+    "prototype_tags",
+    "prototype_locks",
+    "prototype_parent",
+}
 
 _REF_KEYS = ("location", "home", "destination")
 
 # Fields Evennia's object diff gets wrong for declared-subset semantics: the
 # stored forms are canonicalized differently from what the content declares.
 # `declared_diff` compares these two itself.
-_SELF_COMPARED_KEYS = {"locks", "permissions"}
-
-
-class UnsupportedEntityError(RuntimeError):
-    """Raised when content uses an entity kind this milestone cannot apply."""
+_SELF_COMPARED_KEYS = {"locks", "permissions", "aliases", "tags"}
 
 
 @dataclass
@@ -103,12 +105,40 @@ def _declared_locks_are_live(lockstring: str, obj: Any) -> bool:
 def _declared_permissions_are_live(permissions: list[str], obj: Any) -> bool:
     """True when every declared permission is already on the object.
 
-    Evennia lowercases permissions on add, so a declared ``Builders`` must be
-    compared case-insensitively against ``obj.permissions.all()``. Declared
-    entries are added; live ones the content no longer declares are kept.
+    Evennia strips and lowercases permissions on add, so a declared
+    ``Builders`` must be compared case-insensitively against
+    ``obj.permissions.all()``. Declared entries are added; live ones the
+    content no longer declares are kept.
     """
     live = {str(permission).lower() for permission in obj.permissions.all()}
-    return all(str(permission).lower() in live for permission in permissions)
+    return all(str(permission).strip().lower() in live for permission in permissions)
+
+
+def _declared_aliases_are_live(aliases: list[str], obj: Any) -> bool:
+    """Declared aliases are unchanged when each exists live.
+
+    Evennia's `TagHandler.add` strips and lowercases aliases before storing
+    them, so the declared side is normalized the same way.
+    """
+    live = {alias.strip().lower() for alias in obj.aliases.all()}
+    return all(alias.strip().lower() in live for alias in aliases)
+
+
+def _declared_tags_are_live(tags: list[Any], obj: Any) -> bool:
+    """Declared tags are unchanged when each (key, category) exists live.
+
+    Both sides are stripped and lowercased, matching `TagHandler.add`.
+    """
+    live = {
+        (key.strip().lower(), (category or "").strip().lower())
+        for key, category in obj.tags.all(return_key_and_category=True)
+    }
+    for entry in tags:
+        key = entry[0]
+        category = entry[1] if len(entry) > 1 else None
+        if (str(key).strip().lower(), (category or "").strip().lower()) not in live:
+            return False
+    return True
 
 
 def declared_diff(prototype: dict[str, Any], obj: Any) -> dict[str, Any]:
@@ -129,17 +159,22 @@ def declared_diff(prototype: dict[str, Any], obj: Any) -> dict[str, Any]:
         prototype["permissions"], obj
     ):
         declared["permissions"] = "UPDATE"
+    if prototype.get("aliases") and not _declared_aliases_are_live(
+        prototype["aliases"], obj
+    ):
+        declared["aliases"] = "UPDATE"
+    if prototype.get("tags") and not _declared_tags_are_live(prototype["tags"], obj):
+        declared["tags"] = "UPDATE"
     return declared
 
 
 def build_plan(index: ContentIndex, *, resolve_ref: RefResolver) -> Plan:
-    """Diff every entity against the database; refuses unsupported kinds."""
+    """Diff every entity against the database; prototype templates are skipped."""
     plan = Plan()
     for entity in index.entities.values():
         if isinstance(entity, PrototypeEntity):
-            raise UnsupportedEntityError(
-                f"entity '{entity.id}': prototype entities are not supported yet"
-            )
+            # Templates are not world objects; they have no plan of their own.
+            continue
         existing = find_entity_object(entity.id)
         if existing is None:
             plan.changes.append(PlannedChange(entity.id, "create"))

@@ -8,7 +8,15 @@ import yaml
 from pydantic import ValidationError
 
 from evennia_mudification.findings import Finding
-from evennia_mudification.models import Bundle, Entity
+from evennia_mudification.models import (
+    Bundle,
+    Entity,
+    ExitEntity,
+    ObjectEntity,
+    ReverseOverride,
+    RoomEntity,
+    ref_target,
+)
 from evennia_mudification.source import SourceDocument
 
 
@@ -59,4 +67,142 @@ def compile_documents(documents: list[SourceDocument]) -> ContentIndex:
                 continue
             index.entities[entity.id] = entity
             index.entity_sources[entity.id] = source
+    _flatten_contents(index)
+    _expand_counts(index)
+    _synthesize_reverse_exits(index)
     return index
+
+
+def _flatten_contents(index: ContentIndex) -> None:
+    """Move nested children into the index, injecting `location: @parent`."""
+
+    def walk(parent_id: str, children: list[Entity], source: str) -> None:
+        for child in children:
+            if not isinstance(child, ObjectEntity):
+                index.findings.append(
+                    Finding(
+                        "error",
+                        "nested-kind",
+                        f"nested child '{child.id}' must be an object",
+                        source,
+                        child.id,
+                    )
+                )
+                continue
+            if child.location is not None:
+                index.findings.append(
+                    Finding(
+                        "error",
+                        "nested-location",
+                        f"nested child '{child.id}' must not declare a location "
+                        "(it takes the parent's)",
+                        source,
+                        child.id,
+                    )
+                )
+                continue
+            if child.id in index.entities:
+                index.findings.append(
+                    Finding(
+                        "error",
+                        "duplicate-id",
+                        f"id '{child.id}' is already defined",
+                        source,
+                        child.id,
+                    )
+                )
+                continue
+            if child.count is not None:
+                # A nested counted entity with children is flagged by
+                # `_expand_counts`; keeping its children unflattened reports
+                # the error exactly once, mirroring the top-level case.
+                index.entities[child.id] = child.model_copy(
+                    update={"location": f"@{parent_id}"}
+                )
+                index.entity_sources[child.id] = source
+                continue
+            grandchildren = list(child.contents)
+            flat = child.model_copy(
+                update={"location": f"@{parent_id}", "contents": []}
+            )
+            index.entities[flat.id] = flat
+            index.entity_sources[flat.id] = source
+            walk(flat.id, grandchildren, source)
+
+    for entity in list(index.entities.values()):
+        if not isinstance(entity, (RoomEntity, ObjectEntity)) or not entity.contents:
+            continue
+        if isinstance(entity, ObjectEntity) and entity.count is not None:
+            # A counted entity with children is flagged by `_expand_counts`;
+            # leaving its children unflattened reports the error exactly once.
+            continue
+        source = index.entity_sources[entity.id]
+        children = list(entity.contents)
+        index.entities[entity.id] = entity.model_copy(update={"contents": []})
+        walk(entity.id, children, source)
+
+
+def _expand_counts(index: ContentIndex) -> None:
+    """Expand `count: N` objects into `<id>#1..N` instances."""
+    for entity in list(index.entities.values()):
+        if not isinstance(entity, ObjectEntity) or entity.count is None:
+            continue
+        source = index.entity_sources[entity.id]
+        if entity.contents:
+            index.findings.append(
+                Finding(
+                    "error",
+                    "count-with-contents",
+                    f"counted entity '{entity.id}' must not declare contents",
+                    source,
+                    entity.id,
+                )
+            )
+            continue
+        del index.entities[entity.id]
+        del index.entity_sources[entity.id]
+        for ordinal in range(1, entity.count + 1):
+            instance = entity.model_copy(
+                update={"id": f"{entity.id}#{ordinal}", "count": None}
+            )
+            index.entities[instance.id] = instance
+            index.entity_sources[instance.id] = source
+
+
+def _synthesize_reverse_exits(index: ContentIndex) -> None:
+    """Create `<id>:reverse` exits for declared `reverse:` markers."""
+    # Synthesized ids (`<id>:reverse`) cannot collide with declared ids: the
+    # declared-id grammar forbids `:`, each source exit id is unique, and
+    # synthesized copies carry `reverse: None`, so each reverse id is unique.
+    for entity in list(index.entities.values()):
+        if not isinstance(entity, ExitEntity) or not entity.reverse:
+            continue
+        source = index.entity_sources[entity.id]
+        reverse_id = f"{entity.id}:reverse"
+        # The reverse exit leads back where this one came from; its inferred
+        # key is the key of the room it leads to (the synthesized exit's
+        # destination, i.e. this exit's location).
+        leads_to = index.entities.get(ref_target(entity.location))
+        override = (
+            entity.reverse if isinstance(entity.reverse, ReverseOverride) else None
+        )
+        if override is not None:
+            key = override.key or (
+                leads_to.key if isinstance(leads_to, RoomEntity) else entity.key
+            )
+            aliases = list(override.aliases)
+        else:
+            key = leads_to.key if isinstance(leads_to, RoomEntity) else entity.key
+            aliases = []
+        reverse = entity.model_copy(
+            update={
+                "id": reverse_id,
+                "location": entity.destination,
+                "destination": entity.location,
+                "key": key,
+                "aliases": aliases,
+                "reverse": None,
+            }
+        )
+        index.entities[reverse_id] = reverse
+        index.entity_sources[reverse_id] = source

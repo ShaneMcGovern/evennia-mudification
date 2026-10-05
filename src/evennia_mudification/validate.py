@@ -8,15 +8,19 @@ from typing import Any
 
 from evennia_mudification.compile import ContentIndex
 from evennia_mudification.findings import Finding, Severity
+from evennia_mudification.identity import ENTITY_TAG_CATEGORY, SOURCE_TAG_CATEGORY
 from evennia_mudification.models import (
     EntityBase,
     ExitEntity,
     ObjectEntity,
+    PrototypeEntity,
     RoomEntity,
     ref_target,
 )
 
 _RE_PROTFUNC = re.compile(r"(?<!\$)\$([a-z_][a-z0-9_]*)\(")
+
+RESERVED_TAG_CATEGORIES = (ENTITY_TAG_CATEGORY, SOURCE_TAG_CATEGORY)
 
 
 def validate_index(
@@ -27,6 +31,7 @@ def validate_index(
 ) -> list[Finding]:
     """Check references and kind constraints; collects every problem found."""
     findings: list[Finding] = []
+    findings.extend(find_reserved_tag_issues(index))
     for entity in index.entities.values():
         source = index.entity_sources[entity.id]
         for ref, field_name in _refs_of(entity):
@@ -53,6 +58,7 @@ def validate_index(
                         entity.id,
                     )
                 )
+    findings.extend(find_prototype_ref_issues(index))
     if check_evennia:
         findings.extend(find_protfunc_issues(index))
         findings.extend(find_lockstring_issues(index))
@@ -124,6 +130,60 @@ def find_typeclass_issues(
                     severity,
                     "typeclass-unresolved",
                     f"typeclass '{entity.typeclass}' did not resolve: {err}",
+                    index.entity_sources[entity.id],
+                    entity.id,
+                )
+            )
+    return findings
+
+
+def find_reserved_tag_issues(index: ContentIndex) -> list[Finding]:
+    """Flag content tags that claim the engine's reserved tag categories."""
+    findings: list[Finding] = []
+    for entity in index.entities.values():
+        for category in entity.tags.values():
+            # Evennia stores tag categories stripped and lowercased, so a
+            # declared category only collides with a reserved one after the
+            # same normalization.
+            if str(category).strip().lower() in RESERVED_TAG_CATEGORIES:
+                findings.append(
+                    Finding(
+                        "error",
+                        "reserved-tag-category",
+                        f"tag category '{category}' is reserved by the engine",
+                        index.entity_sources[entity.id],
+                        entity.id,
+                    )
+                )
+    return findings
+
+
+def find_prototype_ref_issues(index: ContentIndex) -> list[Finding]:
+    """Check that `prototype:` refs point at declared prototype entities."""
+    findings: list[Finding] = []
+    for entity in index.entities.values():
+        if not isinstance(entity, ObjectEntity) or not entity.prototype:
+            continue
+        target = index.entities.get(ref_target(entity.prototype))
+        if target is None:
+            findings.append(
+                Finding(
+                    "error",
+                    "prototype-not-found",
+                    (
+                        f"prototype ref '{entity.prototype}' "
+                        "does not match any declared entity"
+                    ),
+                    index.entity_sources[entity.id],
+                    entity.id,
+                )
+            )
+        elif not isinstance(target, PrototypeEntity):
+            findings.append(
+                Finding(
+                    "error",
+                    "prototype-not-a-template",
+                    f"prototype ref '{entity.prototype}' is not a prototype entity",
                     index.entity_sources[entity.id],
                     entity.id,
                 )
