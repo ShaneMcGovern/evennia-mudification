@@ -96,7 +96,7 @@ def test_nested_child_with_location_is_error(tmp_path: Path) -> None:
     assert "chest" not in index.entities
 
 
-def test_nested_non_object_child_is_error(tmp_path: Path) -> None:
+def test_nested_non_object_child_is_a_schema_error(tmp_path: Path) -> None:
     (tmp_path / "c.yaml").write_text(
         "schema_version: 1\nentities:\n"
         "  - id: hall\n    kind: room\n    key: hall\n"
@@ -104,7 +104,7 @@ def test_nested_non_object_child_is_error(tmp_path: Path) -> None:
         "      - id: inner\n        kind: room\n        key: inner\n"
     )
     index = compile_documents(LocalDirectorySource(tmp_path).documents())
-    assert [finding.code for finding in index.findings] == ["nested-kind"]
+    assert [finding.code for finding in index.findings] == ["schema"]
 
 
 def test_count_expands_to_instances(tmp_path: Path) -> None:

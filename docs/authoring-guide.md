@@ -96,7 +96,7 @@ Every entity declares a `kind` and the common fields:
 | --- | --- | --- |
 | `kind` | yes | `room`, `exit`, `object` or `prototype` |
 | `id` | yes | the entity's stable identity, and the name other entities reference |
-| `key` | yes | the display name |
+| `key` | yes | the display name; must not be blank |
 | `typeclass` | no | dotted path of the typeclass to spawn. When omitted, the engine uses Evennia's base typeclass for the kind; for an object with a `prototype`, the template's typeclass applies |
 | `aliases` | no | list of alternative names |
 | `attrs` | no | mapping of attribute name to value |
@@ -197,7 +197,7 @@ A counted entity must not declare `contents`. That is the `count-with-contents` 
 
 Rooms and objects may declare `contents`, a list of child entities. Children:
 
-- must be objects (`nested-kind` otherwise),
+- must be objects (the schema rejects anything else),
 - need their own ids,
 - must not declare a `location` (`nested-location`), because the compiler injects `location: "@parent"`.
 
@@ -291,9 +291,8 @@ The finding codes:
 | Code | Severity | What triggers it |
 | --- | --- | --- |
 | `yaml-parse` | error | A file is not valid YAML. |
-| `schema` | error | A bundle does not match the schema: unknown field, wrong type, missing required field, bad id, or unsupported `schema_version`. |
+| `schema` | error | A bundle does not match the schema: unknown field, wrong type, missing required field, bad id, blank key, or a `schema_version` other than 1. |
 | `duplicate-id` | error | An id is declared twice, in one bundle or across the content root, including a nested child that repeats an existing id; a nested duplicate's discarded descendants are named in the finding. |
-| `nested-kind` | error | A `contents` child is not an object. |
 | `nested-location` | error | A `contents` child declares its own `location`. |
 | `count-with-contents` | error | An entity declares both `count` and `contents`. |
 | `content-root-missing` | error | The content root does not exist or is not a directory. |

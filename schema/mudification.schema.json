@@ -10,6 +10,8 @@
           "type": "string"
         },
         "key": {
+          "minLength": 1,
+          "pattern": ".*\\S.*",
           "title": "Key",
           "type": "string"
         },
@@ -115,6 +117,8 @@
           "type": "string"
         },
         "key": {
+          "minLength": 1,
+          "pattern": ".*\\S.*",
           "title": "Key",
           "type": "string"
         },
@@ -235,29 +239,7 @@
         },
         "contents": {
           "items": {
-            "discriminator": {
-              "mapping": {
-                "exit": "#/$defs/ExitEntity",
-                "object": "#/$defs/ObjectEntity",
-                "prototype": "#/$defs/PrototypeEntity",
-                "room": "#/$defs/RoomEntity"
-              },
-              "propertyName": "kind"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/$defs/RoomEntity"
-              },
-              {
-                "$ref": "#/$defs/ExitEntity"
-              },
-              {
-                "$ref": "#/$defs/ObjectEntity"
-              },
-              {
-                "$ref": "#/$defs/PrototypeEntity"
-              }
-            ]
+            "$ref": "#/$defs/ObjectEntity"
           },
           "title": "Contents",
           "type": "array"
@@ -277,6 +259,8 @@
           "type": "string"
         },
         "key": {
+          "minLength": 1,
+          "pattern": ".*\\S.*",
           "title": "Key",
           "type": "string"
         },
@@ -384,6 +368,8 @@
           "type": "string"
         },
         "key": {
+          "minLength": 1,
+          "pattern": ".*\\S.*",
           "title": "Key",
           "type": "string"
         },
@@ -451,29 +437,7 @@
         },
         "contents": {
           "items": {
-            "discriminator": {
-              "mapping": {
-                "exit": "#/$defs/ExitEntity",
-                "object": "#/$defs/ObjectEntity",
-                "prototype": "#/$defs/PrototypeEntity",
-                "room": "#/$defs/RoomEntity"
-              },
-              "propertyName": "kind"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/$defs/RoomEntity"
-              },
-              {
-                "$ref": "#/$defs/ExitEntity"
-              },
-              {
-                "$ref": "#/$defs/ObjectEntity"
-              },
-              {
-                "$ref": "#/$defs/PrototypeEntity"
-              }
-            ]
+            "$ref": "#/$defs/ObjectEntity"
           },
           "title": "Contents",
           "type": "array"
@@ -488,6 +452,7 @@
   "description": "One YAML file's worth of content.",
   "properties": {
     "schema_version": {
+      "const": 1,
       "title": "Schema Version",
       "type": "integer"
     },
@@ -501,6 +466,7 @@
         }
       ],
       "default": null,
+      "description": "A free-form label for your own organisation; the engine accepts it and otherwise ignores it.",
       "title": "Zone"
     },
     "entities": {
