@@ -34,7 +34,7 @@ def validate_index(
     findings.extend(find_reserved_tag_issues(index))
     for entity in index.entities.values():
         source = index.entity_sources[entity.id]
-        for ref, field_name in _refs_of(entity):
+        for ref, field_name, allowed, code in _refs_of(entity):
             target_id = ref_target(ref)
             target = index.entities.get(target_id)
             if target is None:
@@ -48,12 +48,13 @@ def validate_index(
                     )
                 )
                 continue
-            if isinstance(entity, ExitEntity) and not isinstance(target, RoomEntity):
+            if not isinstance(target, allowed):
+                expected = "a room" if allowed == (RoomEntity,) else "a room or object"
                 findings.append(
                     Finding(
                         "error",
-                        f"{field_name}-not-room",
-                        f"{field_name} '{ref}' is not a room",
+                        code,
+                        f"{field_name} '{ref}' is not {expected}",
                         source,
                         entity.id,
                     )
@@ -202,15 +203,38 @@ def _iter_strings(value: Any) -> Iterator[str]:
             yield from _iter_strings(item)
 
 
-def _refs_of(entity: EntityBase) -> list[tuple[str, str]]:
-    """Return `(ref, field-name)` pairs declared on an entity."""
-    refs: list[tuple[str, str]] = []
+def _refs_of(
+    entity: EntityBase,
+) -> list[tuple[str, str, tuple[type[EntityBase], ...], str]]:
+    """Return `(ref, field-name, allowed entity classes, finding code)` entries.
+
+    Prototypes are rejected everywhere: they are never live objects. Exits are
+    links, not containers.
+    """
     if isinstance(entity, ExitEntity):
-        refs.append((entity.location, "location"))
-        refs.append((entity.destination, "destination"))
-    elif isinstance(entity, ObjectEntity):
+        return [
+            (entity.location, "location", (RoomEntity,), "location-not-room"),
+            (entity.destination, "destination", (RoomEntity,), "destination-not-room"),
+        ]
+    if isinstance(entity, ObjectEntity):
+        refs: list[tuple[str, str, tuple[type[EntityBase], ...], str]] = []
         if entity.location:
-            refs.append((entity.location, "location"))
+            refs.append(
+                (
+                    entity.location,
+                    "location",
+                    (RoomEntity, ObjectEntity),
+                    "location-not-room-or-object",
+                )
+            )
         if entity.home:
-            refs.append((entity.home, "home"))
-    return refs
+            refs.append(
+                (
+                    entity.home,
+                    "home",
+                    (RoomEntity, ObjectEntity),
+                    "home-not-room-or-object",
+                )
+            )
+        return refs
+    return []
