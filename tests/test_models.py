@@ -155,6 +155,20 @@ def test_count_must_be_positive() -> None:
         Bundle.model_validate(bad)
 
 
+def test_count_cap_is_enforced() -> None:
+    allowed = {
+        "schema_version": 1,
+        "entities": [{"id": "r", "kind": "object", "key": "r", "count": 10000}],
+    }
+    assert Bundle.model_validate(allowed)
+    bad = {
+        "schema_version": 1,
+        "entities": [{"id": "r", "kind": "object", "key": "r", "count": 10001}],
+    }
+    with pytest.raises(ValidationError):
+        Bundle.model_validate(bad)
+
+
 def test_contents_recursion_parses() -> None:
     nested = {
         "schema_version": 1,

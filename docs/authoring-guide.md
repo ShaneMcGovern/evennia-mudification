@@ -191,6 +191,8 @@ After expansion the base id no longer exists. A reference to `"@rats"` is theref
 
 A counted entity must not declare `contents`. That is the `count-with-contents` error; declare the object without `count` if it needs children.
 
+`count` is capped at 10000 instances; anything larger is a schema error, so a mistyped digit fails validation instead of exhausting the machine.
+
 ## Nesting
 
 Rooms and objects may declare `contents`, a list of child entities. Children:
@@ -290,7 +292,7 @@ The finding codes:
 | --- | --- | --- |
 | `yaml-parse` | error | A file is not valid YAML. |
 | `schema` | error | A bundle does not match the schema: unknown field, wrong type, missing required field, bad id, or unsupported `schema_version`. |
-| `duplicate-id` | error | An id is declared twice, in one bundle or across the content root, including a nested child that repeats an existing id. |
+| `duplicate-id` | error | An id is declared twice, in one bundle or across the content root, including a nested child that repeats an existing id; a nested duplicate's discarded descendants are named in the finding. |
 | `nested-kind` | error | A `contents` child is not an object. |
 | `nested-location` | error | A `contents` child declares its own `location`. |
 | `count-with-contents` | error | An entity declares both `count` and `contents`. |

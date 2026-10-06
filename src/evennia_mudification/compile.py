@@ -38,7 +38,9 @@ def compile_documents(documents: list[SourceDocument]) -> ContentIndex:
         index.sources.append(source)
         try:
             raw = yaml.safe_load(document.text)
-        except yaml.YAMLError as err:
+        except (yaml.YAMLError, RecursionError) as err:
+            # PyYAML's recursive loader overflows on pathologically deep
+            # nesting; that is content error, not a crash.
             index.findings.append(Finding("error", "yaml-parse", str(err), source))
             continue
         if raw is None:
@@ -83,6 +85,16 @@ def compile_documents(documents: list[SourceDocument]) -> ContentIndex:
     return index
 
 
+def _subtree_ids(entities: list[Entity]) -> list[str]:
+    """Return every declared id in a nested subtree, depth first."""
+    ids: list[str] = []
+    for entity in entities:
+        ids.append(entity.id)
+        if isinstance(entity, (RoomEntity, ObjectEntity)):
+            ids.extend(_subtree_ids(entity.contents))
+    return ids
+
+
 def _flatten_contents(index: ContentIndex) -> None:
     """Move nested children into the index, injecting `location: @parent`."""
 
@@ -112,11 +124,17 @@ def _flatten_contents(index: ContentIndex) -> None:
                 )
                 continue
             if child.id in index.entities:
+                descendants = _subtree_ids(list(child.contents))
+                detail = (
+                    f"; its descendants are discarded: {', '.join(descendants)}"
+                    if descendants
+                    else ""
+                )
                 index.findings.append(
                     Finding(
                         "error",
                         "duplicate-id",
-                        f"id '{child.id}' is already defined",
+                        f"id '{child.id}' is already defined{detail}",
                         source,
                         child.id,
                     )
