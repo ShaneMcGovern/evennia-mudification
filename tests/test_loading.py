@@ -38,3 +38,21 @@ def test_file_root_is_an_error(tmp_path: Path) -> None:
     index, findings = load_content(root_file)
     assert index.entities == {}
     assert [finding.code for finding in findings] == ["content-root-missing"]
+
+
+def test_empty_root_is_an_error(tmp_path: Path) -> None:
+    index, findings = load_content(tmp_path)
+    assert index.entities == {}
+    assert [finding.code for finding in findings] == ["no-bundles-found"]
+    assert findings[0].severity == "error"
+    assert str(tmp_path) in findings[0].message
+
+
+def test_yml_files_are_bundles(tmp_path: Path) -> None:
+    (tmp_path / "world.yml").write_text(
+        "schema_version: 1\nentities:\n  - id: a\n    kind: room\n    key: a\n",
+        encoding="utf-8",
+    )
+    index, findings = load_content(tmp_path)
+    assert set(index.entities) == {"a"}
+    assert findings == []

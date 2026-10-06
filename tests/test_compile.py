@@ -52,11 +52,12 @@ def test_schema_error_reports_field_location(tmp_path: Path) -> None:
     assert "locaton" in finding.message
 
 
-def test_empty_file_is_skipped(tmp_path: Path) -> None:
+def test_empty_file_is_reported(tmp_path: Path) -> None:
     (tmp_path / "empty.yaml").write_text("")
     index = compile_documents(LocalDirectorySource(tmp_path).documents())
     assert index.entities == {}
-    assert index.findings == []
+    assert [finding.code for finding in index.findings] == ["empty-bundle"]
+    assert "empty.yaml" in index.findings[0].source
 
 
 def test_contents_are_flattened_with_location(tmp_path: Path) -> None:
