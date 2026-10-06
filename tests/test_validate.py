@@ -111,3 +111,56 @@ def test_ref_to_counted_base_is_dangling(tmp_path: Path) -> None:
     findings = _validate_dir(tmp_path)
     assert [finding.code for finding in findings] == ["dangling-ref"]
     assert "@rats" in findings[0].message
+
+
+def test_object_location_must_be_a_room_or_object(tmp_path: Path) -> None:
+    (tmp_path / "c.yaml").write_text(
+        "schema_version: 1\nentities:\n"
+        "  - id: tpl\n    kind: prototype\n    key: tpl\n"
+        '  - id: g\n    kind: object\n    key: g\n    location: "@tpl"\n'
+    )
+    findings = _validate_dir(tmp_path)
+    assert [finding.code for finding in findings] == ["location-not-room-or-object"]
+    assert "@tpl" in findings[0].message
+
+
+def test_object_location_may_be_an_object(tmp_path: Path) -> None:
+    (tmp_path / "c.yaml").write_text(
+        "schema_version: 1\nentities:\n"
+        "  - id: chest\n    kind: object\n    key: chest\n"
+        '  - id: coin\n    kind: object\n    key: coin\n    location: "@chest"\n'
+    )
+    assert _validate_dir(tmp_path) == []
+
+
+def test_object_location_may_not_be_an_exit(tmp_path: Path) -> None:
+    (tmp_path / "c.yaml").write_text(
+        "schema_version: 1\nentities:\n"
+        "  - id: a\n    kind: room\n    key: a\n"
+        "  - id: b\n    kind: room\n    key: b\n"
+        "  - id: door\n    kind: exit\n    key: door\n"
+        '    location: "@a"\n    destination: "@b"\n'
+        '  - id: g\n    kind: object\n    key: g\n    location: "@door"\n'
+    )
+    findings = _validate_dir(tmp_path)
+    assert [finding.code for finding in findings] == ["location-not-room-or-object"]
+
+
+def test_object_home_must_be_a_room_or_object(tmp_path: Path) -> None:
+    (tmp_path / "c.yaml").write_text(
+        "schema_version: 1\nentities:\n"
+        "  - id: tpl\n    kind: prototype\n    key: tpl\n"
+        '  - id: coin\n    kind: object\n    key: coin\n    home: "@tpl"\n'
+    )
+    findings = _validate_dir(tmp_path)
+    assert [finding.code for finding in findings] == ["home-not-room-or-object"]
+    assert "@tpl" in findings[0].message
+
+
+def test_object_home_may_be_an_object(tmp_path: Path) -> None:
+    (tmp_path / "c.yaml").write_text(
+        "schema_version: 1\nentities:\n"
+        "  - id: chest\n    kind: object\n    key: chest\n"
+        '  - id: coin\n    kind: object\n    key: coin\n    home: "@chest"\n'
+    )
+    assert _validate_dir(tmp_path) == []

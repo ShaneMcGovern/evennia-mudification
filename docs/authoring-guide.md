@@ -129,7 +129,7 @@ A `kind: exit` entity is a link. `location` and `destination` are both required,
 
 ### Objects
 
-A `kind: object` entity is a thing. `location` may name a room or another object, and `home` names the object's home. Objects may also declare `count` (see Counts), `prototype` (see Prototypes) and `contents` (see Nesting).
+A `kind: object` entity is a thing. `location` may name a room or another object, and `home` names the object's home, again a room or another object. An exit or a template is never a valid target for either: an exit is a link, and a template is never a live object. Objects may also declare `count` (see Counts), `prototype` (see Prototypes) and `contents` (see Nesting).
 
 Here is one bundle using all three kinds:
 
@@ -302,6 +302,8 @@ The finding codes:
 | `dangling-ref` | error | A `@id` reference matches no declared entity. |
 | `location-not-room` | error | An exit's `location` reference points at something that is not a room. |
 | `destination-not-room` | error | An exit's `destination` reference points at something that is not a room. |
+| `location-not-room-or-object` | error | An object's `location` reference points at an exit or a template. |
+| `home-not-room-or-object` | error | An object's `home` reference points at an exit or a template. |
 | `prototype-not-found` | error | A `prototype` reference matches no declared entity. |
 | `prototype-not-a-template` | error | A `prototype` reference points at an entity that is not `kind: prototype`. |
 | `reserved-tag-category` | error | A tag claims a category the engine reserves, `mudification` or `mudification_source`. |
