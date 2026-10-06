@@ -8,6 +8,10 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_vali
 
 SUPPORTED_SCHEMA_VERSIONS = (1,)
 
+# Expansion of a larger count already costs seconds and hundreds of megabytes,
+# and every downstream pass multiplies it; a typo must fail fast instead.
+MAX_COUNT = 10000
+
 Id = Annotated[str, StringConstraints(pattern=r"^[a-z0-9][a-z0-9_-]*$")]
 Ref = Annotated[str, StringConstraints(pattern=r"^@[a-z0-9][a-z0-9_-]*$")]
 
@@ -59,7 +63,7 @@ class ObjectEntity(EntityBase):
     kind: Literal["object"]
     location: Ref | None = None
     home: Ref | None = None
-    count: int | None = Field(default=None, ge=1)
+    count: int | None = Field(default=None, ge=1, le=MAX_COUNT)
     prototype: Ref | None = None
     contents: list[Entity] = Field(default_factory=list)
 
