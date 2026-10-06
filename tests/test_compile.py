@@ -177,6 +177,39 @@ def test_nested_duplicate_id_is_error(tmp_path: Path) -> None:
     assert index.entities["chest"].kind == "object"
 
 
+def test_duplicate_nested_child_names_discarded_descendants(tmp_path: Path) -> None:
+    (tmp_path / "c.yaml").write_text(
+        "schema_version: 1\nentities:\n"
+        "  - id: chest\n    kind: object\n    key: chest\n"
+        "  - id: hall\n    kind: room\n    key: hall\n"
+        "    contents:\n"
+        "      - id: chest\n        kind: object\n        key: chest\n"
+        "        contents:\n"
+        "          - id: coin\n            kind: object\n            key: coin\n"
+    )
+    index = compile_documents(LocalDirectorySource(tmp_path).documents())
+    finding = index.findings[0]
+    assert finding.code == "duplicate-id"
+    assert "coin" in finding.message
+
+
+def test_deep_nesting_reports_yaml_parse_instead_of_raising(tmp_path: Path) -> None:
+    depth = 400
+    lines = ["schema_version: 1", "entities:"]
+    for level in range(depth):
+        item_pad = " " * (2 + 4 * level)
+        key_pad = " " * (4 + 4 * level)
+        kind = "room" if level == 0 else "object"
+        lines.append(f"{item_pad}- id: e{level}")
+        lines.append(f"{key_pad}kind: {kind}")
+        lines.append(f"{key_pad}key: e{level}")
+        if level + 1 < depth:
+            lines.append(f"{key_pad}contents:")
+    (tmp_path / "deep.yaml").write_text("\n".join(lines) + "\n")
+    index = compile_documents(LocalDirectorySource(tmp_path).documents())
+    assert [finding.code for finding in index.findings] == ["yaml-parse"]
+
+
 def test_nested_count_with_contents_is_error(tmp_path: Path) -> None:
     (tmp_path / "c.yaml").write_text(
         "schema_version: 1\nentities:\n"
