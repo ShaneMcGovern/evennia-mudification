@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 import yaml
@@ -85,7 +86,7 @@ def compile_documents(documents: list[SourceDocument]) -> ContentIndex:
     return index
 
 
-def _subtree_ids(entities: list[Entity]) -> list[str]:
+def _subtree_ids(entities: Sequence[Entity]) -> list[str]:
     """Return every declared id in a nested subtree, depth first."""
     ids: list[str] = []
     for entity in entities:
@@ -98,19 +99,8 @@ def _subtree_ids(entities: list[Entity]) -> list[str]:
 def _flatten_contents(index: ContentIndex) -> None:
     """Move nested children into the index, injecting `location: @parent`."""
 
-    def walk(parent_id: str, children: list[Entity], source: str) -> None:
+    def walk(parent_id: str, children: list[ObjectEntity], source: str) -> None:
         for child in children:
-            if not isinstance(child, ObjectEntity):
-                index.findings.append(
-                    Finding(
-                        "error",
-                        "nested-kind",
-                        f"nested child '{child.id}' must be an object",
-                        source,
-                        child.id,
-                    )
-                )
-                continue
             if child.location is not None:
                 index.findings.append(
                     Finding(

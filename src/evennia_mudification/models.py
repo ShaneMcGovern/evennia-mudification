@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
-
-SUPPORTED_SCHEMA_VERSIONS = (1,)
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 # Expansion of a larger count already costs seconds and hundreds of megabytes,
 # and every downstream pass multiplies it; a typo must fail fast instead.
@@ -14,6 +12,8 @@ MAX_COUNT = 10000
 
 Id = Annotated[str, StringConstraints(pattern=r"^[a-z0-9][a-z0-9_-]*$")]
 Ref = Annotated[str, StringConstraints(pattern=r"^@[a-z0-9][a-z0-9_-]*$")]
+# A key may not be blank: Evennia would fall back to a generated name like #1.
+Key = Annotated[str, StringConstraints(min_length=1, pattern=r".*\S.*")]
 
 
 class EntityBase(BaseModel):
@@ -22,7 +22,7 @@ class EntityBase(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: Id
-    key: str
+    key: Key
     typeclass: str | None = None
     aliases: list[str] = Field(default_factory=list)
     attrs: dict[str, Any] = Field(default_factory=dict)
@@ -45,7 +45,7 @@ class RoomEntity(EntityBase):
     """A room."""
 
     kind: Literal["room"]
-    contents: list[Entity] = Field(default_factory=list)
+    contents: list[ObjectEntity] = Field(default_factory=list)
 
 
 class ExitEntity(EntityBase):
@@ -65,7 +65,7 @@ class ObjectEntity(EntityBase):
     home: Ref | None = None
     count: int | None = Field(default=None, ge=1, le=MAX_COUNT)
     prototype: Ref | None = None
-    contents: list[Entity] = Field(default_factory=list)
+    contents: list[ObjectEntity] = Field(default_factory=list)
 
 
 class PrototypeEntity(EntityBase):
@@ -85,18 +85,15 @@ class Bundle(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: int
-    zone: str | None = None
+    schema_version: Literal[1]
+    zone: str | None = Field(
+        default=None,
+        description=(
+            "A free-form label for your own organisation; the engine accepts "
+            "it and otherwise ignores it."
+        ),
+    )
     entities: list[Entity]
-
-    @model_validator(mode="after")
-    def _check_schema_version(self) -> Bundle:
-        if self.schema_version not in SUPPORTED_SCHEMA_VERSIONS:
-            raise ValueError(
-                f"unsupported schema_version {self.schema_version}; "
-                f"supported versions: {SUPPORTED_SCHEMA_VERSIONS}"
-            )
-        return self
 
 
 def ref_target(ref: str) -> str:
