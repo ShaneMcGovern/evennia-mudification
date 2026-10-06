@@ -25,3 +25,12 @@ def test_reads_yaml_files_sorted(tmp_path: Path) -> None:
 
 def test_missing_root_yields_no_documents(tmp_path: Path) -> None:
     assert LocalDirectorySource(tmp_path / "does-not-exist").documents() == []
+
+
+def test_reads_yml_files_too(tmp_path: Path) -> None:
+    (tmp_path / "a.yml").write_text("a: 1\n", encoding="utf-8")
+    (tmp_path / "b.yaml").write_text("b: 1\n", encoding="utf-8")
+
+    documents = LocalDirectorySource(tmp_path).documents()
+
+    assert [document.path.name for document in documents] == ["a.yml", "b.yaml"]

@@ -42,6 +42,16 @@ def compile_documents(documents: list[SourceDocument]) -> ContentIndex:
             index.findings.append(Finding("error", "yaml-parse", str(err), source))
             continue
         if raw is None:
+            # A blanked or comment-only file would otherwise drop every entity
+            # it used to hold with no finding explaining the disappearance.
+            index.findings.append(
+                Finding(
+                    "error",
+                    "empty-bundle",
+                    "file holds no bundle; a bundle needs schema_version and entities",
+                    source,
+                )
+            )
             continue
         try:
             bundle = Bundle.model_validate(raw)
