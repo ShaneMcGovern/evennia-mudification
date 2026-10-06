@@ -24,14 +24,20 @@ class ContentSource(Protocol):
 
 
 class LocalDirectorySource:
-    """Read `*.yaml` bundles from a local directory tree."""
+    """Read `*.yaml` and `*.yml` bundles from a local directory tree."""
 
     def __init__(self, root: Path) -> None:
         self.root = Path(root)
 
     def documents(self) -> list[SourceDocument]:
+        paths = sorted(
+            [
+                *self.root.glob("**/*.yaml"),
+                *self.root.glob("**/*.yml"),
+            ]
+        )
         return [
             SourceDocument(path=path, text=path.read_text(encoding="utf-8"))
-            for path in sorted(self.root.glob("**/*.yaml"))
+            for path in paths
             if path.is_file()
         ]

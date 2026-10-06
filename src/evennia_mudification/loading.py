@@ -18,10 +18,11 @@ def load_content(
 ) -> tuple[ContentIndex, list[Finding]]:
     """Load, compile and validate a content root; never raises for bad content.
 
-    A missing root is the ``content-root-missing`` error, so a typo'd path
-    cannot validate zero entities clean. Read failures and any other exception
-    become a synthetic ``load-error`` finding instead of aborting the CLI, the
-    in-game command or the server-start hook.
+    A missing root is the ``content-root-missing`` error and a root holding no
+    bundle files is ``no-bundles-found``, so a typo'd path or a renamed
+    extension cannot validate zero entities clean. Read failures and any other
+    exception become a synthetic ``load-error`` finding instead of aborting the
+    CLI, the in-game command or the server-start hook.
     """
     if not root.is_dir():
         finding = Finding(
@@ -32,7 +33,16 @@ def load_content(
         )
         return ContentIndex(), [finding]
     try:
-        index = compile_documents(LocalDirectorySource(root).documents())
+        documents = LocalDirectorySource(root).documents()
+        if not documents:
+            finding = Finding(
+                "error",
+                "no-bundles-found",
+                f"content root '{root}' holds no bundle files",
+                str(root),
+            )
+            return ContentIndex(), [finding]
+        index = compile_documents(documents)
         findings = index.findings + validate_index(
             index, check_evennia=check_evennia, typeclass_severity=typeclass_severity
         )

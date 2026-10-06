@@ -60,7 +60,7 @@ mudification validate content
 4 entities, 0 errors, 0 warnings
 ```
 
-The loader reads every `*.yaml` file under the path in sorted order, so a tree of subdirectories works the same way.
+The loader reads every `*.yaml` and `*.yml` file under the path in sorted order, so a tree of subdirectories works the same way. A root holding none of either is a `no-bundles-found` error, and a file that parses to nothing is an `empty-bundle` error, so a renamed extension or a blanked file cannot silently drop content.
 
 ## Bundles
 
@@ -295,6 +295,8 @@ The finding codes:
 | `nested-location` | error | A `contents` child declares its own `location`. |
 | `count-with-contents` | error | An entity declares both `count` and `contents`. |
 | `content-root-missing` | error | The content root does not exist or is not a directory. |
+| `no-bundles-found` | error | The content root holds no `*.yaml` or `*.yml` files. |
+| `empty-bundle` | error | A bundle file parses to nothing, for example an empty or comment-only file. |
 | `load-error` | error | A bundle could not be read or loaded, for example an unreadable file or invalid UTF-8. |
 | `dangling-ref` | error | A `@id` reference matches no declared entity. |
 | `location-not-room` | error | An exit's `location` reference points at something that is not a room. |
