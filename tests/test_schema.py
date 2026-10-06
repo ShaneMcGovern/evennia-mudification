@@ -23,3 +23,13 @@ def test_write_schema_creates_parent_directories(tmp_path: Path) -> None:
     target = tmp_path / "nested" / "mudification.schema.json"
     write_schema(target)
     assert json.loads(target.read_text(encoding="utf-8")) == generate_json_schema()
+
+
+def test_schema_pins_the_supported_version() -> None:
+    schema = generate_json_schema()
+    assert schema["properties"]["schema_version"]["const"] == 1
+
+
+def test_zone_is_described_in_the_schema() -> None:
+    schema = generate_json_schema()
+    assert "description" in schema["properties"]["zone"]

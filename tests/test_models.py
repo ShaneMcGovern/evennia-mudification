@@ -203,3 +203,37 @@ def test_prototype_ref_must_be_a_ref() -> None:
     }
     with pytest.raises(ValidationError):
         Bundle.model_validate(bad)
+
+
+def test_contents_only_accept_objects() -> None:
+    bad = {
+        "schema_version": 1,
+        "entities": [
+            {
+                "id": "hall",
+                "kind": "room",
+                "key": "hall",
+                "contents": [{"id": "inner", "kind": "room", "key": "inner"}],
+            }
+        ],
+    }
+    with pytest.raises(ValidationError):
+        Bundle.model_validate(bad)
+
+
+def test_empty_key_is_rejected() -> None:
+    bad = {
+        "schema_version": 1,
+        "entities": [{"id": "a", "kind": "room", "key": ""}],
+    }
+    with pytest.raises(ValidationError):
+        Bundle.model_validate(bad)
+
+
+def test_whitespace_only_key_is_rejected() -> None:
+    bad = {
+        "schema_version": 1,
+        "entities": [{"id": "a", "kind": "room", "key": "   "}],
+    }
+    with pytest.raises(ValidationError):
+        Bundle.model_validate(bad)
