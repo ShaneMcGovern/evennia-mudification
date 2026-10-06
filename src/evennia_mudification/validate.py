@@ -59,6 +59,7 @@ def validate_index(
                         entity.id,
                     )
                 )
+    findings.extend(find_location_cycle_issues(index))
     findings.extend(find_prototype_ref_issues(index))
     if check_evennia:
         findings.extend(find_protfunc_issues(index))
@@ -156,6 +157,45 @@ def find_reserved_tag_issues(index: ContentIndex) -> list[Finding]:
                     )
                 )
     return findings
+
+
+def find_location_cycle_issues(index: ContentIndex) -> list[Finding]:
+    """Flag objects whose location refs form a placement cycle."""
+    edges: dict[str, str] = {}
+    refs: dict[str, str] = {}
+    for entity in index.entities.values():
+        if isinstance(entity, ObjectEntity) and entity.location:
+            target = ref_target(entity.location)
+            if target in index.entities:
+                edges[entity.id] = target
+                refs[entity.id] = entity.location
+    state: dict[str, str] = {}
+    in_cycle: set[str] = set()
+    for start in edges:
+        if start in state:
+            continue
+        stack: list[str] = []
+        node: str | None = start
+        while node is not None and node not in state:
+            state[node] = "visiting"
+            stack.append(node)
+            node = edges.get(node)
+        if node is not None and state.get(node) == "visiting":
+            # A back edge: the stack from the revisited node onward is the cycle.
+            in_cycle.update(stack[stack.index(node) :])
+        for seen in stack:
+            state[seen] = "done"
+    return [
+        Finding(
+            "error",
+            "location-cycle",
+            f"location ref '{refs[entity_id]}' forms a placement cycle",
+            index.entity_sources[entity_id],
+            entity_id,
+        )
+        for entity_id in refs
+        if entity_id in in_cycle
+    ]
 
 
 def find_prototype_ref_issues(index: ContentIndex) -> list[Finding]:

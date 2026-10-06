@@ -101,6 +101,30 @@ def test_prototype_ref_to_non_template_is_error(tmp_path: Path) -> None:
     assert [finding.code for finding in findings] == ["prototype-not-a-template"]
 
 
+def test_placement_cycle_is_error(tmp_path: Path) -> None:
+    (tmp_path / "c.yaml").write_text(
+        "schema_version: 1\nentities:\n"
+        '  - id: a\n    kind: object\n    key: a\n    location: "@b"\n'
+        '  - id: b\n    kind: object\n    key: b\n    location: "@a"\n'
+    )
+    findings = _validate_dir(tmp_path)
+    assert [finding.code for finding in findings] == [
+        "location-cycle",
+        "location-cycle",
+    ]
+    assert {finding.entity_id for finding in findings} == {"a", "b"}
+
+
+def test_self_location_is_cycle_error(tmp_path: Path) -> None:
+    (tmp_path / "c.yaml").write_text(
+        "schema_version: 1\nentities:\n"
+        '  - id: a\n    kind: object\n    key: a\n    location: "@a"\n'
+    )
+    findings = _validate_dir(tmp_path)
+    assert [finding.code for finding in findings] == ["location-cycle"]
+    assert findings[0].entity_id == "a"
+
+
 def test_ref_to_counted_base_is_dangling(tmp_path: Path) -> None:
     (tmp_path / "c.yaml").write_text(
         "schema_version: 1\nentities:\n"

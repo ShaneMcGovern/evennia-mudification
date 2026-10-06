@@ -1,5 +1,6 @@
 """Tests for planning against the live database."""
 
+import shutil
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -64,6 +65,49 @@ class TestPlan(BaseEvenniaTestCase):
             plan = build_plan(self._index(root), resolve_ref=self._resolver)
         assert {change.entity_id for change in plan.changes} == {"room"}
         assert plan.retirements == set()
+
+    def test_ref_to_declared_unapplied_entity_plans_an_update(self) -> None:
+        # Planning resolves refs for existing objects; a target declared in
+        # the same edit has no live object yet, and the create pass makes it
+        # available before the update phase runs.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "basic"
+            shutil.copytree(CORPUS, root)
+            index = self._index(root)
+            assert apply_plan(
+                build_plan(index, resolve_ref=self._resolver),
+                index=index,
+                resolve_ref=self._resolver,
+            ).ok
+
+            corpus_file = root / "village.yaml"
+            text = corpus_file.read_text(encoding="utf-8")
+            text = text.replace(
+                'key: a wooden signpost\n    location: "@square"',
+                'key: a wooden signpost\n    location: "@attic"',
+            )
+            corpus_file.write_text(
+                text.rstrip("\n")
+                + "\n  - id: attic\n    kind: room\n    key: a dusty attic\n",
+                encoding="utf-8",
+            )
+
+            def lookup_only(ref: str) -> Any:
+                obj = self._find(ref)
+                if obj is None:
+                    raise LookupError(f"reference '{ref}' has not been applied yet")
+                return obj
+
+            index2 = self._index(root)
+            plan = build_plan(index2, resolve_ref=lookup_only)
+            updates = [change for change in plan.changes if change.action == "update"]
+            assert [change.entity_id for change in updates] == ["signpost"]
+            assert set(updates[0].diff) == {"location"}
+            assert "create attic" in plan.render()
+
+            report = apply_plan(plan, index=index2, resolve_ref=self._resolver)
+            assert report.ok
+            assert self._find("@signpost").location == self._find("@attic")
 
     def test_render_lists_creates(self) -> None:
         plan = build_plan(self._index(), resolve_ref=self._resolver)

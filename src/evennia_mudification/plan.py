@@ -24,6 +24,8 @@ _META_KEYS = {
 
 _REF_KEYS = ("location", "home", "destination")
 
+_UNRESOLVED = object()
+
 # Fields Evennia's diff gets wrong: stored forms are canonicalized differently
 # from the declared ones, so `declared_diff` compares these itself.
 _SELF_COMPARED_KEYS = {"locks", "permissions", "aliases", "tags"}
@@ -163,8 +165,25 @@ def build_plan(index: ContentIndex, *, resolve_ref: RefResolver) -> Plan:
         if existing is None:
             plan.changes.append(PlannedChange(entity.id, "create"))
             continue
-        prototype = entity_to_prototype(entity, index=index, resolve_ref=resolve_ref)
+        unresolved: list[str] = []
+
+        # Sentinel for a ref whose target is declared in this same index but
+        # has no live object yet; the create pass makes it live before this
+        # entity's update phase resolves refs again.
+        def _tolerant(ref: str) -> Any:
+            try:
+                return resolve_ref(ref)
+            except LookupError:
+                return _UNRESOLVED
+
+        prototype = entity_to_prototype(entity, index=index, resolve_ref=_tolerant)
+        for key in ("location", "home", "destination"):
+            if prototype.get(key) is _UNRESOLVED:
+                del prototype[key]
+                unresolved.append(key)
         diff = declared_diff(prototype, existing)
+        for key in unresolved:
+            diff[key] = "UPDATE"
         if diff:
             plan.changes.append(PlannedChange(entity.id, "update", diff))
     plan.retirements = managed_ids() - set(index.entities)
