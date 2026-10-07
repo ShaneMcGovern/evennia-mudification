@@ -274,6 +274,7 @@ The rules:
 
 - Occupants of a retiring room move to their home when it is live and not itself retiring, otherwise to the fallback room.
 - Contents of a retiring object move to the fallback room.
+- Exits are never evacuated: a retiring room's delete destroys its exits, so they cannot be stranded in a home room.
 - Occupants that are themselves retiring are skipped, because this run destroys them anyway.
 - If a surviving occupant needs the fallback and no usable fallback resolves, or the fallback is itself retiring, unresolvable, or not a room, the plan refuses with `fallback-missing` and nothing is destroyed.
 - Every evacuation runs before any destruction. If an evacuation fails, destruction is skipped entirely, so a container is never deleted while an occupant is stranded.

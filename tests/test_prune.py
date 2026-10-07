@@ -174,6 +174,7 @@ class TestPrune(BaseEvenniaTestCase):
         assert report.ok
         assert report.destroyed == 2
         assert find_entity_object("ghost") is None
+
     def test_exits_are_not_evacuated_and_die_with_the_room(self) -> None:
         self._spawn_world()
         hall = find_entity_object("square")
