@@ -55,7 +55,8 @@ repos:
       - id: uv-lock
 
   # A non-conventional subject silently produces no release, so it is caught at
-  # commit time; commit-msg is the one stage CI cannot run.
+  # commit time; validate.yml checks it again for each pull request commit and
+  # for the pull request title, which a squash merge turns into the subject.
   - repo: https://github.com/compilerla/conventional-pre-commit
     rev: v4.4.0
     hooks:

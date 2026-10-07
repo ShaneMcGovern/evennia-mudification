@@ -206,7 +206,7 @@ The CLI covers validation in CI, or in a pre-commit hook you add yourself:
 
 ## Development
 
-Clone the repository and open the dev container; [CONTRIBUTING.md](CONTRIBUTING.md) has the prerequisites and both start options. Run the suite with `uv run pytest` and every hook with `uv run pre-commit run --all-files`. Releases are automated from Conventional Commits.
+Clone the repository and open the dev container; [CONTRIBUTING.md](CONTRIBUTING.md) has the prerequisites and both start options. Run the suite with `uv run pytest` and the file hooks with `uv run pre-commit run --all-files`; the commit-msg hooks run at commit time, and CI runs all of them on every pull request. Releases are automated from Conventional Commits.
 
 ## Contributing
 

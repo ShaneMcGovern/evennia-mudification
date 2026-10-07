@@ -217,10 +217,12 @@ push to `main`, because the merge commit is one no run has seen before.
 Two workflows, both in `.github/workflows/`.
 
 **`validate.yml`** runs on every branch push and on PRs to `main`. Its jobs are
-`pre-commit`, which runs every hook across all files; `test`, which validates
-the fixture corpus and runs pytest; and `badge`, which regenerates
-`badges/coverage.svg` from the coverage the test job measured and commits it on
-`main` if it changed.
+`pre-commit`, which runs the file hooks across all files, then every commit-msg
+hook over each commit in the pull request and the conventional check over the
+pull request title (a squash merge turns that title into the subject on main);
+`test`, which validates the fixture corpus and runs pytest; and `badge`, which
+regenerates `badges/coverage.svg` from the coverage the test job measured and
+commits it on `main` if it changed.
 
 **`release.yml`** runs on pushes to `main` and hands off to
 python-semantic-release, which reads its configuration from `pyproject.toml`.
