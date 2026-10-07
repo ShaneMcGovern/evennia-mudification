@@ -432,3 +432,51 @@ class TestTemplateInheritance(BaseEvenniaTestCase):
 
 def _any_ref(ref: str) -> Any:
     return ref
+
+
+class TestPlanQueryBudget(BaseEvenniaTestCase):
+    def _resolver(self, ref: str) -> Any:
+        # A dependency-free stand-in: this test measures the plan's own
+        # lookups, not the caller's resolver.
+        from types import SimpleNamespace
+
+        return SimpleNamespace(dbref="#0")
+
+    def _chained_index(self, root: Path, *, count: int) -> ContentIndex:
+        lines = ["schema_version: 1", "entities:"]
+        for item in range(count):
+            lines.append(f"  - id: item{item}")
+            lines.append("    kind: object")
+            lines.append(f"    key: item {item}")
+            if item:
+                lines.append(f'    location: "@item{item - 1}"')
+        (root / "c.yaml").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return compile_documents(LocalDirectorySource(root).documents())
+
+    def _applied_world(self, index: ContentIndex) -> None:
+        for entity_id, entity in index.entities.items():
+            create.create_object(
+                "evennia.objects.objects.DefaultObject",
+                key=entity.key,
+                tags=[(entity_id, ENTITY_TAG_CATEGORY)],
+            )
+
+    def test_plan_queries_do_not_scale_with_entity_count(self) -> None:
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        with tempfile.TemporaryDirectory() as directory:
+            small = self._chained_index(Path(directory), count=10)
+        with tempfile.TemporaryDirectory() as directory:
+            large = self._chained_index(Path(directory), count=40)
+        self._applied_world(small)
+        self._applied_world(large)
+
+        with CaptureQueriesContext(connection) as small_ctx:
+            build_plan(small, resolve_ref=self._resolver)
+        with CaptureQueriesContext(connection) as large_ctx:
+            build_plan(large, resolve_ref=self._resolver)
+        # Per-entity lookups come from one loaded map, so the growth is only
+        # the handful of reads Evennia's own prototype diff performs per
+        # object. Re-adding a lookup per entity would push this past five each.
+        assert len(large_ctx) - len(small_ctx) < 5 * 30
