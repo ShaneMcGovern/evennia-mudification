@@ -12,6 +12,12 @@ dependencies = [
     "pyyaml>=6",
 ]
 
+[project.optional-dependencies]
+# The game environment already provides Evennia; this extra declares the
+# supported floor for anything installing the package on its own. runtime.py
+# enforces the same floor at import.
+evennia = ["evennia>=6.1.0"]
+
 [project.urls]
 Repository = "https://github.com/ShaneMcGovern/evennia-mudification"
 

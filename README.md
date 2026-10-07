@@ -13,7 +13,7 @@ A YAML-defined world content engine for Evennia. Define rooms, exits, objects an
 
 ## Installation
 
-Requires an Evennia 6.1 or later game running Python 3.13 or later. Install into the same environment as the game.
+Requires an Evennia 6.1 or later game running Python 3.13 or later. Install into the same environment as the game; the package checks the Evennia version when it loads and refuses an older one with a message naming the floor. The `evennia` extra declares the same floor for an install outside a game environment.
 
 From the repository at tag `v0.3.0`, with [uv](https://github.com/astral-sh/uv):
 

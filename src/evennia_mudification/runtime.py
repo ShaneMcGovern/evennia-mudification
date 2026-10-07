@@ -7,11 +7,51 @@ from pathlib import Path
 from typing import Any
 
 from django.conf import settings
-from evennia.utils import logger
+
+try:
+    from evennia.utils import logger
+except ModuleNotFoundError as err:  # pragma: no cover - the message is the point
+    if not (err.name or "").startswith("evennia"):
+        raise
+    raise ModuleNotFoundError(
+        "evennia_mudification runs inside an Evennia game environment and "
+        "needs Evennia 6.1 or later on its import path"
+    ) from err
 
 from evennia_mudification.findings import Finding
 from evennia_mudification.loading import load_content
 from evennia_mudification.proto import register_prototypes
+
+_MINIMUM_EVENNIA = (6, 1)
+
+
+def _check_evennia_version(version: str | None) -> None:
+    """Refuse an Evennia older than the documented floor.
+
+    The engine uses 6.1 APIs, and an older version fails with an obscure
+    attribute error somewhere deep in a command instead of here.
+    """
+    if not version:
+        return
+    try:
+        found = tuple(int(part) for part in str(version).split(".")[:2])
+    except ValueError:  # pragma: no cover - an unparseable version is not ours to judge
+        return
+    if found < _MINIMUM_EVENNIA:
+        floor = ".".join(str(part) for part in _MINIMUM_EVENNIA)
+        raise RuntimeError(
+            f"evennia_mudification requires Evennia {floor} or later; "
+            f"this environment has {version}"
+        )
+
+
+def _require_evennia() -> None:
+    import evennia
+
+    _check_evennia_version(getattr(evennia, "__version__", None))
+
+
+_require_evennia()
 
 
 @dataclass
