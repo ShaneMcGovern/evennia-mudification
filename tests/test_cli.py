@@ -144,3 +144,39 @@ def test_typeclass_problems_warn_in_the_cli(
     )
     assert main(["validate", str(tmp_path)]) == 0
     assert "typeclass-unresolved" in capsys.readouterr().out
+
+
+def test_empty_environment_variable_falls_back_to_content(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    content = tmp_path / "content"
+    content.mkdir()
+    (content / "c.yaml").write_text(
+        "schema_version: 1\nentities:\n  - id: a\n    kind: room\n    key: a\n",
+        encoding="utf-8",
+    )
+    # A broken bundle in the working directory: validating it instead of the
+    # fallback content root is the failure this guards.
+    (tmp_path / "stray.yaml").write_text("schema_version: 2\nentities: []\n")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("MUDIFICATION_CONTENT_PATH", "")
+
+    assert main(["validate"]) == 0
+    assert "1 entities, 0 errors" in capsys.readouterr().out
+
+
+def test_version_flag(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        main(["--version"])
+    assert excinfo.value.code == 0
+    printed = capsys.readouterr().out.strip()
+    assert printed.startswith("mudification ")
+    assert any(character.isdigit() for character in printed)
+
+
+def test_schema_write_without_a_path_uses_the_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["schema", "--write"]) == 0
+    assert (tmp_path / "schema" / "mudification.schema.json").exists()

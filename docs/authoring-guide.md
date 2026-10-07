@@ -351,6 +351,7 @@ The CLI covers validation in CI, or in a pre-commit hook you add yourself:
 
 - `mudification validate [path] [--json]`: validate a content root. Prints one line per finding and a summary line; exit code 0 when clean, 1 when there are errors. `--json` emits the findings as JSON. When Evennia is not importable, the protfunc, lockstring and typeclass checks cannot run; the run says so with a `semantic-checks-skipped` warning rather than reporting a clean bill of health.
 - `mudification schema [--write PATH]`: print the JSON Schema for bundles, or write it to PATH for editors, defaulting to `schema/mudification.schema.json`.
+- `mudification --version`: print the installed version.
 
 ## The full example
 

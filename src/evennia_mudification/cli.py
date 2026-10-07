@@ -10,12 +10,30 @@ from pathlib import Path
 
 from evennia_mudification.findings import Finding
 from evennia_mudification.loading import load_content
-from evennia_mudification.schema import generate_json_schema, write_schema
+from evennia_mudification.schema import (
+    SCHEMA_PATH,
+    generate_json_schema,
+    write_schema,
+)
+
+
+def _package_version() -> str:
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        return version("evennia-mudification")
+    except PackageNotFoundError:  # pragma: no cover - only when not installed
+        return "unknown"
 
 
 def main(argv: list[str] | None = None) -> int:
     """Entry point; returns the process exit code."""
     parser = argparse.ArgumentParser(prog="mudification")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {_package_version()}",
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     validate_parser = subparsers.add_parser(
@@ -24,7 +42,9 @@ def main(argv: list[str] | None = None) -> int:
     validate_parser.add_argument(
         "path",
         nargs="?",
-        default=os.environ.get("MUDIFICATION_CONTENT_PATH", "content"),
+        # An empty variable is a set-but-blank environment; fall back rather
+        # than validating the working directory.
+        default=os.environ.get("MUDIFICATION_CONTENT_PATH") or "content",
         help="content root (default: $MUDIFICATION_CONTENT_PATH or ./content)",
     )
     validate_parser.add_argument(
@@ -37,10 +57,10 @@ def main(argv: list[str] | None = None) -> int:
     schema_parser.add_argument(
         "--write",
         nargs="?",
-        const="schema/mudification.schema.json",
+        const=str(SCHEMA_PATH),
         default=None,
         metavar="PATH",
-        help="write the schema to PATH (default: schema/mudification.schema.json)",
+        help=f"write the schema to PATH (default: {SCHEMA_PATH})",
     )
 
     args = parser.parse_args(argv)
