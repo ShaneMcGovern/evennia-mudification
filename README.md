@@ -2,7 +2,7 @@
 
 Contribution by Shane McGovern, 2026
 
-A YAML-defined world content engine for Evennia. Define rooms, exits, objects and prototype templates in YAML files, validate them offline before anything runs, and apply them to a running game with an explicit command. The fields your content declares belong to the content; everything else, including whatever a builder changes in game, survives every apply. This is version 0.3.0, with a test suite whose coverage floor is enforced on CI, and the test and coverage badges below. The author guide is at [docs/authoring-guide.md](docs/authoring-guide.md).
+A YAML-defined world content engine for Evennia. Define rooms, exits, objects and prototype templates in YAML files, validate them offline before anything runs, and apply them to a running game with an explicit command. The fields your content declares belong to the content; everything else, including whatever a builder changes in game, survives every apply. The test suite's coverage floor is enforced on CI, and the test and coverage badges are below. The author guide is at [docs/authoring-guide.md](docs/authoring-guide.md).
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.13.15](https://img.shields.io/badge/python-3.13.15-blue.svg)](https://www.python.org/downloads/)
@@ -15,17 +15,19 @@ A YAML-defined world content engine for Evennia. Define rooms, exits, objects an
 
 Requires an Evennia 6.1 or later game running Python 3.13 or later. Install into the same environment as the game; the package checks the Evennia version when it loads and refuses an older one with a message naming the floor. The `evennia` extra declares the same floor for an install outside a game environment.
 
-From the repository at tag `v0.3.0`, with [uv](https://github.com/astral-sh/uv):
+From the repository, with [uv](https://github.com/astral-sh/uv):
 
 ```bash
-uv add "evennia-mudification @ git+https://github.com/ShaneMcGovern/evennia-mudification.git@v0.3.0"
+uv add "evennia-mudification @ git+https://github.com/ShaneMcGovern/evennia-mudification.git"
 ```
 
 With pip:
 
 ```bash
-pip install "evennia-mudification @ git+https://github.com/ShaneMcGovern/evennia-mudification.git@v0.3.0"
+pip install "evennia-mudification @ git+https://github.com/ShaneMcGovern/evennia-mudification.git"
 ```
+
+Append `@vX.Y.Z` to the URL to pin a release; the tags are on the [releases page](https://github.com/ShaneMcGovern/evennia-mudification/releases/latest).
 
 The package is not published to an index yet; install it from the repository above.
 
@@ -46,7 +48,7 @@ Then make three changes in the game directory.
        validate_on_start()
    ```
 
-   Validation runs at every start, reports to the log and to connected superusers and admins, and never mutates the world.
+   Validation runs at every start, logs what it finds, messages connected superusers and admins when there are errors or warnings, and never mutates the world.
 
 3. In `server/conf/commands/default_cmdsets.py`, add the command beside the default commands:
 
