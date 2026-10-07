@@ -185,6 +185,71 @@ class TestApply(BaseEvenniaTestCase):
             assert failed[0].error is not None
             assert "boom" in failed[0].error
 
+    def test_update_that_did_not_apply_is_reported_as_failure(self) -> None:
+        # Evennia's batch update swallows per-key failures and still reports a
+        # change, so the row must be verified against the object afterwards.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            content = root / "world.yaml"
+            content.write_text(
+                "schema_version: 1\nentities:\n"
+                "  - id: relic\n    kind: object\n    key: a brass relic\n",
+                encoding="utf-8",
+            )
+            index = self._index(root)
+            plan = build_plan(index, resolve_ref=self._resolver)
+            assert apply_plan(plan, index=index, resolve_ref=self._resolver).ok
+
+            content.write_text(
+                "schema_version: 1\nentities:\n"
+                "  - id: relic\n    kind: object\n    key: a brass relic\n"
+                '    attrs: {hp: "$protkey(missing)"}\n',
+                encoding="utf-8",
+            )
+            index2 = self._index(root)
+            plan2 = build_plan(index2, resolve_ref=self._resolver)
+            assert [change.action for change in plan2.changes] == ["update"]
+
+            report = apply_plan(plan2, index=index2, resolve_ref=self._resolver)
+            relic = find_entity_object("relic")
+            assert relic is not None
+            assert relic.attributes.get("hp") is None
+            assert not report.ok
+            failed = [result for result in report.results if not result.ok]
+            assert [result.entity_id for result in failed] == ["relic"]
+            assert "attrs" in (failed[0].error or "")
+
+    def test_update_of_vanished_object_reports_a_clear_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "basic"
+            shutil.copytree(CORPUS, root)
+            index = self._index(root)
+            plan = build_plan(index, resolve_ref=self._resolver)
+            assert apply_plan(plan, index=index, resolve_ref=self._resolver).ok
+
+            corpus_file = root / "village.yaml"
+            corpus_file.write_text(
+                corpus_file.read_text(encoding="utf-8").replace(
+                    "a wooden signpost", "a weathered signpost"
+                ),
+                encoding="utf-8",
+            )
+            index2 = self._index(root)
+            plan2 = build_plan(index2, resolve_ref=self._resolver)
+            assert [change.entity_id for change in plan2.changes] == ["signpost"]
+
+            signpost = find_entity_object("signpost")
+            assert signpost is not None
+            signpost.delete()
+
+            report = apply_plan(plan2, index=index2, resolve_ref=self._resolver)
+            assert not report.ok
+            failed = [result for result in report.results if not result.ok]
+            assert [result.entity_id for result in failed] == ["signpost"]
+            error = failed[0].error or ""
+            assert "NoneType" not in error
+            assert "re-run plan" in error
+
 
 class TestTemplateUpdates(BaseEvenniaTestCase):
     def _index(self, root: Path) -> ContentIndex:
