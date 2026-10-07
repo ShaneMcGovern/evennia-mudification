@@ -28,6 +28,22 @@ _DEFAULT_TYPECLASS_SETTING = {
 
 _ENGINE_TAG_CATEGORIES = frozenset({ENTITY_TAG_CATEGORY, SOURCE_TAG_CATEGORY})
 
+_REGISTERED_KEYS: set[str] = set()
+
+
+def registered_keys() -> frozenset[str]:
+    """Template keys this engine has registered as module prototypes."""
+    return frozenset(_REGISTERED_KEYS)
+
+
+def game_prototype_keys() -> set[str]:
+    """Prototype keys the game already ships as module prototypes."""
+    from evennia.prototypes.prototypes import search_prototype
+
+    return {
+        prototype.get("prototype_key", "") for prototype in search_prototype(no_db=True)
+    }
+
 
 def entity_to_prototype(
     entity: Entity,
@@ -81,17 +97,23 @@ def entity_to_prototype(
 
 
 def register_prototypes(index: ContentIndex) -> int:
-    """Register prototype-kind entities as read-only module prototypes."""
+    """Register prototype-kind entities as read-only module prototypes.
+
+    A key the game already ships is never overwritten; validation reports it as
+    `prototype-key-taken` before this runs. Templates this engine registered
+    before and the content no longer declares are deregistered.
+    """
 
     def _no_refs(ref: str) -> Any:  # pragma: no cover - templates declare no refs
         raise LookupError(f"prototype entities have no object references ({ref})")
 
     from evennia.prototypes.prototypes import (
+        _MODULE_PROTOTYPES,  # no public deregistration API
         homogenize_prototype,
         load_module_prototypes,
     )
 
-    prototypes = []
+    declared: dict[str, dict[str, Any]] = {}
     for entity in index.entities.values():
         if not isinstance(entity, PrototypeEntity):
             continue
@@ -104,13 +126,25 @@ def register_prototypes(index: ContentIndex) -> int:
             for entry in prototype["tags"]
             if entry[1] not in _ENGINE_TAG_CATEGORIES
         ]
-        prototypes.append(prototype)
-    if prototypes:
+        declared[entity.id] = prototype
+
+    # Before deregistering, so our own previous registration is not mistaken
+    # for a game prototype and refused.
+    game_keys = game_prototype_keys() - _REGISTERED_KEYS
+    for key in _REGISTERED_KEYS - declared.keys():
+        _MODULE_PROTOTYPES.pop(key, None)
+    _REGISTERED_KEYS.clear()
+
+    registerable = {
+        key: prototype for key, prototype in declared.items() if key not in game_keys
+    }
+    if registerable:
         # `load_module_prototypes` stores dicts as-is, so normalize to the
         # canonical four-tuple attrs that spawn's inheritance expects.
-        # `override=True` keeps registration idempotent.
+        # `override=True` keeps re-registration idempotent.
         load_module_prototypes(
-            *(homogenize_prototype(prototype) for prototype in prototypes),
+            *(homogenize_prototype(prototype) for prototype in registerable.values()),
             override=True,
         )
-    return len(prototypes)
+    _REGISTERED_KEYS.update(registerable)
+    return len(registerable)

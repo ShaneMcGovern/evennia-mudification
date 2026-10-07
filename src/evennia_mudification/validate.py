@@ -68,6 +68,30 @@ def validate_index(
         findings.extend(find_protfunc_issues(index))
         findings.extend(find_lockstring_issues(index))
         findings.extend(find_typeclass_issues(index, severity=typeclass_severity))
+        findings.extend(find_prototype_key_issues(index))
+    return findings
+
+
+def find_prototype_key_issues(index: ContentIndex) -> list[Finding]:
+    """Flag template ids whose prototype key the game already owns."""
+    from evennia_mudification.proto import game_prototype_keys, registered_keys
+
+    taken = game_prototype_keys() - registered_keys()
+    findings: list[Finding] = []
+    for entity in index.entities.values():
+        if isinstance(entity, PrototypeEntity) and entity.id in taken:
+            findings.append(
+                Finding(
+                    "error",
+                    "prototype-key-taken",
+                    (
+                        f"prototype key '{entity.id}' is already registered by the "
+                        "game; rename the content id"
+                    ),
+                    index.entity_sources[entity.id],
+                    entity.id,
+                )
+            )
     return findings
 
 
