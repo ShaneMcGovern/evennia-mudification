@@ -33,6 +33,7 @@ class TestRunDeferred(BaseEvenniaTestCase):
         calls: list[tuple[Any, ...]] = []
         with (
             patch.object(deferred, "_reactor_running", return_value=True),
+            patch.object(deferred, "_deferral_safe", return_value=True),
             patch(
                 "evennia.utils.utils.run_async",
                 side_effect=lambda *a, **kw: calls.append((a, kw)),
@@ -52,3 +53,36 @@ class TestRunDeferred(BaseEvenniaTestCase):
         # No reactor runs under pytest; reporting that honestly selects the
         # inline path in every other test here.
         assert deferred._reactor_running() is False
+
+    def test_deferral_is_unsafe_on_sqlite(self) -> None:
+        # The suite runs on Evennia's stock sqlite settings; the check must
+        # see that, because sqlite cannot take Evennia's worker-thread access.
+        assert deferred._deferral_safe() is False
+
+    def test_sqlite_skips_deferral_even_with_reactor(self) -> None:
+        calls: list[str] = []
+        with (
+            patch.object(deferred, "_reactor_running", return_value=True),
+            patch("evennia.utils.utils.run_async") as run_async_mock,
+        ):
+            deferred_result = deferred.run_deferred(
+                lambda: "value", at_return=calls.append
+            )
+        assert deferred_result is False
+        assert calls == ["value"]
+        assert run_async_mock.call_count == 0
+
+    def test_deferred_run_closes_connections_around_the_work(self) -> None:
+        executed: list[str] = []
+        with (
+            patch.object(deferred, "_reactor_running", return_value=True),
+            patch.object(deferred, "_deferral_safe", return_value=True),
+            patch("django.db.close_old_connections") as close_mock,
+            patch(
+                "evennia.utils.utils.run_async",
+                side_effect=lambda work, **kwargs: executed.append(work()),
+            ),
+        ):
+            assert deferred.run_deferred(lambda: "x", at_return=print) is True
+        assert executed == ["x"]
+        assert close_mock.call_count == 2
