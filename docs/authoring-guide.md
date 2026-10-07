@@ -67,7 +67,7 @@ The loader reads every `*.yaml` and `*.yml` file under the path in sorted order,
 Each YAML file is one bundle with three top-level fields:
 
 - `schema_version` (required): the format version. Version `1` is the only supported value.
-- `zone` (optional): a label for your own organisation. The engine accepts it and otherwise ignores it, so it has no effect in 0.3.0.
+- `zone` (optional): a label for your own organisation. The engine accepts it and otherwise ignores it.
 - `entities` (required): the list of entity declarations.
 
 A minimal bundle:
