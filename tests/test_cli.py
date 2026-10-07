@@ -66,7 +66,9 @@ def test_validate_relative_path_survives_evennia_chdir(
 
     monkeypatch.setattr("evennia_mudification.cli._ensure_evennia", chdir_away)
     assert main(["validate", "content"]) == 0
-    assert "1 entities, 0 errors, 0 warnings" in capsys.readouterr().out
+    # The fake also reports Evennia unavailable, so the summary carries the
+    # skipped-checks warning; the point here is the path resolution.
+    assert "1 entities, 0 errors" in capsys.readouterr().out
 
 
 def test_validate_json_output(
@@ -102,3 +104,43 @@ def test_module_entrypoint(
     with pytest.raises(SystemExit) as excinfo:
         runpy.run_module("evennia_mudification", run_name="__main__")
     assert excinfo.value.code == 0
+
+
+def test_unavailable_evennia_is_stated(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "c.yaml").write_text(
+        "schema_version: 1\nentities:\n  - id: a\n    kind: room\n    key: a\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("evennia_mudification.cli._ensure_evennia", lambda: False)
+    assert main(["validate", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert "semantic-checks-skipped" in out
+    assert "1 entities, 0 errors, 1 warnings" in out
+
+
+def test_skipped_checks_are_in_json_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "c.yaml").write_text(
+        "schema_version: 1\nentities:\n  - id: a\n    kind: room\n    key: a\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("evennia_mudification.cli._ensure_evennia", lambda: False)
+    assert main(["validate", "--json", str(tmp_path)]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert [item["code"] for item in payload] == ["semantic-checks-skipped"]
+    assert payload[0]["severity"] == "warning"
+
+
+def test_typeclass_problems_warn_in_the_cli(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "c.yaml").write_text(
+        "schema_version: 1\nentities:\n  - id: a\n    kind: object\n"
+        "    key: x\n    typeclass: nowhere.Missing\n",
+        encoding="utf-8",
+    )
+    assert main(["validate", str(tmp_path)]) == 0
+    assert "typeclass-unresolved" in capsys.readouterr().out
