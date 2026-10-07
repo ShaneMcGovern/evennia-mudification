@@ -12,7 +12,11 @@ from evennia.utils.test_resources import BaseEvenniaTestCase
 from evennia_mudification import prune
 from evennia_mudification.apply import apply_plan
 from evennia_mudification.compile import compile_documents
-from evennia_mudification.identity import ENTITY_TAG_CATEGORY, find_entity_object
+from evennia_mudification.identity import (
+    ENTITY_TAG_CATEGORY,
+    SOURCE_TAG_CATEGORY,
+    find_entity_object,
+)
 from evennia_mudification.models import ref_target
 from evennia_mudification.plan import build_plan
 from evennia_mudification.prune import execute_prune, plan_prune, resolve_fallback
@@ -137,7 +141,10 @@ class TestPrune(BaseEvenniaTestCase):
         chest = create.create_object(
             "evennia.objects.objects.DefaultObject",
             key="chest",
-            tags=[("chest", ENTITY_TAG_CATEGORY)],
+            tags=[
+                ("chest", ENTITY_TAG_CATEGORY),
+                ("village.yaml", SOURCE_TAG_CATEGORY),
+            ],
         )
         coin = create.create_object(
             "evennia.objects.objects.DefaultObject", key="coin", location=chest
@@ -149,18 +156,35 @@ class TestPrune(BaseEvenniaTestCase):
         assert coin.location == inn
         assert find_entity_object("chest") is None
 
+    def test_duplicate_objects_retire_in_one_run(self) -> None:
+        for _ in range(2):
+            create.create_object(
+                "evennia.objects.objects.DefaultObject",
+                key="ghost copy",
+                tags=[
+                    ("ghost", ENTITY_TAG_CATEGORY),
+                    ("village.yaml", SOURCE_TAG_CATEGORY),
+                ],
+            )
+        prune_plan = plan_prune({"ghost"}, fallback=None)
+        assert prune_plan.errors == []
+        report = execute_prune(prune_plan)
+        assert report.ok
+        assert report.destroyed == 2
+        assert find_entity_object("ghost") is None
+
     def test_evacuation_failure_is_reported(self) -> None:
         delete = mock.Mock()
         room = SimpleNamespace(key="room", contents=[_BadOccupant()], delete=delete)
         fallback = create.create_object(
             "evennia.objects.objects.DefaultRoom", key="fallback"
         )
-        with mock.patch.object(prune, "find_entity_object", return_value=room):
+        with mock.patch.object(prune, "find_entity_objects", return_value=[room]):
             prune_plan = plan_prune({"square"}, fallback=fallback)
         assert [evacuation.reason for evacuation in prune_plan.evacuations] == [
             "fallback"
         ]
-        with mock.patch.object(prune, "find_entity_object", return_value=room):
+        with mock.patch.object(prune, "find_entity_objects", return_value=[room]):
             report = execute_prune(prune_plan)
         assert not report.ok
         assert "evacuate bad: FAILED: boom" in report.render()
@@ -171,7 +195,7 @@ class TestPrune(BaseEvenniaTestCase):
 
     def test_vetoed_deletion_is_reported(self) -> None:
         room = SimpleNamespace(key="room", contents=[], delete=lambda: False)
-        with mock.patch.object(prune, "find_entity_object", return_value=room):
+        with mock.patch.object(prune, "find_entity_objects", return_value=[room]):
             prune_plan = plan_prune({"square"}, fallback=None)
             report = execute_prune(prune_plan)
         assert not report.ok
@@ -185,8 +209,8 @@ class TestPrune(BaseEvenniaTestCase):
         room = SimpleNamespace(key="room", contents=[], delete=_boom)
         with mock.patch.object(
             prune,
-            "find_entity_object",
-            side_effect=lambda entity_id: None if entity_id == "stale" else room,
+            "find_entity_objects",
+            side_effect=lambda entity_id: [] if entity_id == "stale" else [room],
         ):
             prune_plan = plan_prune({"stale", "square"}, fallback=None)
             assert prune_plan.errors == []

@@ -11,7 +11,7 @@ from evennia.utils.test_resources import BaseEvenniaTestCase
 
 from evennia_mudification.apply import apply_plan
 from evennia_mudification.compile import ContentIndex, compile_documents
-from evennia_mudification.identity import ENTITY_TAG_CATEGORY
+from evennia_mudification.identity import ENTITY_TAG_CATEGORY, SOURCE_TAG_CATEGORY
 from evennia_mudification.plan import Plan, build_plan
 from evennia_mudification.proto import entity_to_prototype
 from evennia_mudification.source import LocalDirectorySource
@@ -49,10 +49,27 @@ class TestPlan(BaseEvenniaTestCase):
         create.create_object(
             "evennia.objects.objects.DefaultObject",
             key="rogue",
-            tags=[("rogue", ENTITY_TAG_CATEGORY)],
+            tags=[
+                ("rogue", ENTITY_TAG_CATEGORY),
+                ("village.yaml", SOURCE_TAG_CATEGORY),
+            ],
         )
         plan = build_plan(self._index(), resolve_ref=self._resolver)
         assert plan.retirements == {"rogue"}
+
+    def test_duplicate_managed_objects_are_surfaced(self) -> None:
+        for _ in range(2):
+            create.create_object(
+                "evennia.objects.objects.DefaultRoom",
+                key="stale square",
+                tags=[
+                    ("square", ENTITY_TAG_CATEGORY),
+                    ("village.yaml", SOURCE_TAG_CATEGORY),
+                ],
+            )
+        plan = build_plan(self._index(), resolve_ref=self._resolver)
+        assert plan.duplicates == {"square": 2}
+        assert "duplicate square: 2 live objects" in plan.render()
 
     def test_prototype_entities_are_skipped(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -117,12 +134,18 @@ class TestPlan(BaseEvenniaTestCase):
         create.create_object(
             "evennia.objects.objects.DefaultRoom",
             key="stale square",
-            tags=[("square", ENTITY_TAG_CATEGORY)],
+            tags=[
+                ("square", ENTITY_TAG_CATEGORY),
+                ("village.yaml", SOURCE_TAG_CATEGORY),
+            ],
         )
         create.create_object(
             "evennia.objects.objects.DefaultObject",
             key="rogue",
-            tags=[("rogue", ENTITY_TAG_CATEGORY)],
+            tags=[
+                ("rogue", ENTITY_TAG_CATEGORY),
+                ("village.yaml", SOURCE_TAG_CATEGORY),
+            ],
         )
         plan = build_plan(self._index(), resolve_ref=self._resolver)
         updates = [change for change in plan.changes if change.action == "update"]
