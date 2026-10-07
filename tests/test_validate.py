@@ -212,3 +212,14 @@ def test_counted_instance_errors_are_reported_once(tmp_path: Path) -> None:
     findings = _validate_dir(tmp_path)
     assert [finding.code for finding in findings] == ["dangling-ref"]
     assert [finding.entity_id for finding in findings] == ["rats"]
+
+
+def test_home_ref_must_resolve(tmp_path: Path) -> None:
+    (tmp_path / "c.yaml").write_text(
+        "schema_version: 1\nentities:\n"
+        "  - id: a\n    kind: room\n    key: a\n"
+        '  - id: b\n    kind: object\n    key: b\n    home: "@missing"\n'
+    )
+    findings = _validate_dir(tmp_path)
+    assert [finding.code for finding in findings] == ["dangling-ref"]
+    assert "home" in findings[0].message
