@@ -36,6 +36,45 @@ def test_unknown_protfunc_is_error(tmp_path: Path) -> None:
     assert [finding.code for finding in findings] == ["unknown-protfunc"]
 
 
+def test_uppercase_protfunc_name_is_error(tmp_path: Path) -> None:
+    index = _index(
+        tmp_path,
+        '  - id: b\n    kind: object\n    key: b\n    attrs:\n      roll: "$Obj(1)"\n',
+    )
+    findings = validate_index(index, check_evennia=True)
+    assert [finding.code for finding in findings] == ["unknown-protfunc"]
+
+
+def test_camelcase_protfunc_name_is_error(tmp_path: Path) -> None:
+    index = _index(
+        tmp_path,
+        "  - id: b\n    kind: object\n    key: b\n"
+        '    attrs:\n      roll: "$fooBar(1)"\n',
+    )
+    findings = validate_index(index, check_evennia=True)
+    assert [finding.code for finding in findings] == ["unknown-protfunc"]
+
+
+def test_escaped_dollar_is_not_a_protfunc(tmp_path: Path) -> None:
+    index = _index(
+        tmp_path,
+        "  - id: b\n    kind: object\n    key: b\n"
+        "    attrs:\n      price: '\\$Obj(1)'\n",
+    )
+    assert validate_index(index, check_evennia=True) == []
+
+
+def test_typeclass_resolves_through_typeclass_paths(tmp_path: Path) -> None:
+    # settings.TYPECLASS_PATHS is how the spawner resolves short paths; the
+    # default includes `evennia`.
+    index = _index(
+        tmp_path,
+        "  - id: b\n    kind: object\n    key: b\n"
+        "    typeclass: objects.objects.DefaultObject\n",
+    )
+    assert validate_index(index, check_evennia=True) == []
+
+
 def test_invalid_lockstring_is_error(tmp_path: Path) -> None:
     index = _index(
         tmp_path,
