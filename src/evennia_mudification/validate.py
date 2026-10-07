@@ -18,7 +18,10 @@ from evennia_mudification.models import (
     ref_target,
 )
 
-_RE_PROTFUNC = re.compile(r"(?<!\$)\$([a-z_][a-z0-9_]*)\(")
+# Mirrors Evennia's parser: a name starts with a letter or underscore and runs
+# to the first parenthesis; a backslash-escaped `$` is not a call. Narrower
+# patterns silently miss names the parser would reject at spawn.
+_RE_PROTFUNC = re.compile(r"(?<![\$\\])\$([^\W\d][^(]*)\(")
 
 RESERVED_TAG_CATEGORIES = (ENTITY_TAG_CATEGORY, SOURCE_TAG_CATEGORY)
 
@@ -118,6 +121,7 @@ def find_typeclass_issues(
     index: ContentIndex, *, severity: Severity = "error"
 ) -> list[Finding]:
     """Flag typeclass paths that cannot be imported in this environment."""
+    from django.conf import settings
     from evennia.utils.utils import class_from_module
 
     findings: list[Finding] = []
@@ -125,7 +129,7 @@ def find_typeclass_issues(
         if not entity.typeclass:
             continue
         try:
-            class_from_module(entity.typeclass)
+            class_from_module(entity.typeclass, defaultpaths=settings.TYPECLASS_PATHS)
         except ImportError as err:
             findings.append(
                 Finding(

@@ -310,7 +310,7 @@ The finding codes:
 | `reserved-tag-category` | error | A tag claims a category the engine reserves, `mudification` or `mudification_source`. |
 | `unknown-protfunc` | error | A `$name(...)` reference in a key, desc or attribute is not a registered Evennia protfunc. |
 | `invalid-lock` | error | Evennia rejects a declared lockstring. |
-| `typeclass-unresolved` | error in game, warning from the CLI | A typeclass path cannot be imported in this environment. |
+| `typeclass-unresolved` | error in game, warning from the CLI | A typeclass path cannot be imported in this environment, resolved the way the spawner does through `settings.TYPECLASS_PATHS`. |
 | `fallback-missing` | error | A prune plan needs the fallback room for a surviving occupant and no usable fallback resolves. |
 
 ## Settings
