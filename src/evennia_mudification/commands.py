@@ -111,7 +111,7 @@ class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typ
             self.msg("run 'mudification apply confirm' to apply these changes.")
             return
         register_prototypes(index)
-        deferred = run_deferred(
+        self._run(
             partial(
                 apply_plan,
                 plan,
@@ -119,11 +119,10 @@ class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typ
                 resolve_ref=self._resolve_ref,
                 caller=self.caller,
             ),
-            at_return=partial(self._report_applied, entity_count=len(index.entities)),
-            at_err=self._report_failed("apply"),
+            on_return=partial(self._report_applied, entity_count=len(index.entities)),
+            on_error=self._report_failed("apply"),
+            off_thread="applying off-thread; results will follow.",
         )
-        if deferred:
-            self.msg("applying off-thread; results will follow.")
 
     def _report_applied(self, report: Any, *, entity_count: int) -> None:
         self.msg(report.render())
@@ -137,6 +136,39 @@ class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typ
             get_message = getattr(err, "getErrorMessage", None)
             message = get_message() if get_message is not None else str(err)
             self.msg(f"{action} failed: {message}")
+
+        return _inner
+
+    def _run(
+        self,
+        work: Callable[[], Any],
+        *,
+        on_return: Callable[[Any], None],
+        on_error: Callable[[Exception], None],
+        off_thread: str,
+    ) -> None:
+        """Start one apply or prune, holding the single run slot meanwhile."""
+        if not runtime.claim_run():
+            self.msg("an apply or prune is already running; wait for it to finish.")
+            return
+        try:
+            deferred = run_deferred(
+                work,
+                at_return=self._releasing(on_return),
+                at_err=self._releasing(on_error),
+            )
+        except Exception:
+            runtime.release_run()
+            raise
+        if deferred:
+            self.msg(off_thread)
+
+    def _releasing(self, callback: Callable[..., None]) -> Callable[..., None]:
+        def _inner(*args: Any, **kwargs: Any) -> None:
+            try:
+                callback(*args, **kwargs)
+            finally:
+                runtime.release_run()
 
         return _inner
 
@@ -156,13 +188,12 @@ class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typ
         # Confirmed runs keep the module-prototype namespace in step with the
         # content: declared templates register, removed ones deregister.
         register_prototypes(index)
-        deferred = run_deferred(
+        self._run(
             partial(execute_prune, prune_plan),
-            at_return=lambda report: self.msg(report.render()),
-            at_err=self._report_failed("prune"),
+            on_return=lambda report: self.msg(report.render()),
+            on_error=self._report_failed("prune"),
+            off_thread="pruning off-thread; results will follow.",
         )
-        if deferred:
-            self.msg("pruning off-thread; results will follow.")
 
     def _status(self) -> None:
         summary = runtime.LAST_VALIDATION

@@ -26,6 +26,25 @@ class ValidationSummary:
 
 LAST_VALIDATION: ValidationSummary | None = None
 LAST_APPLIED: int | None = None
+RUN_IN_FLIGHT = False
+
+
+def claim_run() -> bool:
+    """Claim the single apply/prune slot; False while one is already running.
+
+    A deferred run finishes after its command returned, so the plan of a second
+    confirmation would be computed against a database mid-change.
+    """
+    global RUN_IN_FLIGHT
+    if RUN_IN_FLIGHT:
+        return False
+    RUN_IN_FLIGHT = True
+    return True
+
+
+def release_run() -> None:
+    global RUN_IN_FLIGHT
+    RUN_IN_FLIGHT = False
 
 
 def _connected_sessions() -> list[Any]:
