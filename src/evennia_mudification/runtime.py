@@ -21,7 +21,6 @@ class ValidationSummary:
     content_path: str
     entity_count: int
     errors: list[Finding] = field(default_factory=list)
-    warnings: list[Finding] = field(default_factory=list)
 
 
 LAST_VALIDATION: ValidationSummary | None = None
@@ -71,10 +70,9 @@ def notify_connected_superusers(summary: ValidationSummary) -> int:
     """
     lines = [
         f"mudification: validated {summary.entity_count} entities from "
-        f"{summary.content_path} ({len(summary.errors)} errors, "
-        f"{len(summary.warnings)} warnings)"
+        f"{summary.content_path} ({len(summary.errors)} errors)"
     ]
-    lines.extend(finding.render() for finding in [*summary.errors, *summary.warnings])
+    lines.extend(finding.render() for finding in summary.errors)
     text = "\n".join(lines)
     notified = 0
     seen: set[Any] = set()
@@ -116,15 +114,12 @@ def validate_on_start() -> ValidationSummary | None:
         content_path=str(content_path),
         entity_count=len(index.entities),
         errors=[finding for finding in findings if finding.severity == "error"],
-        warnings=[finding for finding in findings if finding.severity == "warning"],
     )
     for finding in summary.errors:
         if finding.code == "load-error":
             logger.log_err(f"mudification: content load failed: {finding.message}")
         else:
             logger.log_err(f"mudification: {finding.render()}")
-    for finding in summary.warnings:
-        logger.log_info(f"mudification: {finding.render()}")
     registered = 0 if summary.errors else register_prototypes(index)
     logger.log_info(
         f"mudification: validated {summary.entity_count} entities from "
@@ -132,6 +127,6 @@ def validate_on_start() -> ValidationSummary | None:
         f"{registered} templates registered)"
     )
     LAST_VALIDATION = summary
-    if summary.errors or summary.warnings:
+    if summary.errors:
         notify_connected_superusers(summary)
     return summary

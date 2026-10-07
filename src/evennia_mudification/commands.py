@@ -70,6 +70,11 @@ class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typ
             self.msg("MUDIFICATION_CONTENT_PATH is not set.")
             return None
         index, findings = load_content(Path(content_path), check_evennia=True)
+        # Recorded before any refusal, so `status` can never show a stale
+        # all-clear for content this run rejected. Prototype registration is
+        # deliberately not here: inspection commands must not mutate the
+        # prototype namespace.
+        self._record_validation(str(content_path), index, findings)
         load_error = next(
             (finding for finding in findings if finding.code == "load-error"), None
         )
@@ -82,15 +87,16 @@ class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typ
                 self.msg(finding.render())
             self.msg(f"{len(errors)} validation errors; nothing was applied.")
             return None
-        # Every successful load is also the latest validation, so `status`
-        # reports what this run saw. Prototype registration is deliberately not
-        # here: inspection commands must not mutate the prototype namespace.
-        runtime.LAST_VALIDATION = runtime.ValidationSummary(
-            content_path=str(content_path),
-            entity_count=len(index.entities),
-            warnings=[finding for finding in findings if finding.severity == "warning"],
-        )
         return index
+
+    def _record_validation(
+        self, content_path: str, index: ContentIndex, findings: list[Any]
+    ) -> None:
+        runtime.LAST_VALIDATION = runtime.ValidationSummary(
+            content_path=content_path,
+            entity_count=len(index.entities),
+            errors=[finding for finding in findings if finding.severity == "error"],
+        )
 
     def _resolve_ref(self, ref: str) -> Any:
         obj = find_entity_object(ref_target(ref))
@@ -119,17 +125,17 @@ class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typ
                 resolve_ref=self._resolve_ref,
                 caller=self.caller,
             ),
-            on_return=partial(self._report_applied, entity_count=len(index.entities)),
+            on_return=self._report_applied,
             on_error=self._report_failed("apply"),
             off_thread="applying off-thread; results will follow.",
         )
 
-    def _report_applied(self, report: Any, *, entity_count: int) -> None:
+    def _report_applied(self, report: Any) -> None:
         self.msg(report.render())
         if not report.ok:
             self.msg("some entities failed; fix the content and re-run apply.")
         else:
-            runtime.LAST_APPLIED = entity_count
+            runtime.LAST_APPLIED = len(report.results)
 
     def _report_failed(self, action: str) -> Callable[[Exception], None]:
         def _inner(err: Exception) -> None:
@@ -202,15 +208,16 @@ class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typ
         else:
             self.msg(
                 f"last validation: {summary.entity_count} entities from "
-                f"{summary.content_path} ({len(summary.errors)} errors, "
-                f"{len(summary.warnings)} warnings)"
+                f"{summary.content_path} ({len(summary.errors)} errors)"
             )
         self.msg(f"managed entities in the database: {len(managed_ids())}")
         if runtime.LAST_APPLIED is not None:
             self.msg(f"last applied: {runtime.LAST_APPLIED} entities")
         content_path = getattr(settings, "MUDIFICATION_CONTENT_PATH", None)
         if content_path:
-            index, findings = load_content(Path(content_path), check_evennia=False)
+            # The same checks apply runs, so a status error is labelled the
+            # way apply will refuse it.
+            index, findings = load_content(Path(content_path), check_evennia=True)
             errors = [finding for finding in findings if finding.severity == "error"]
             if errors:
                 for finding in errors:

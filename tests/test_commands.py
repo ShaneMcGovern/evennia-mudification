@@ -1,6 +1,7 @@
 """Tests for the in-game command and server-start validation."""
 
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -204,6 +205,9 @@ class TestCmdMudification(BaseEvenniaTestCase):
 
     def test_apply_deferred_when_reactor_running(self) -> None:
         caller = self._caller()
+        # The mocked run_async swallows the callbacks that would release the
+        # run slot, so release it here rather than refusing the next apply.
+        self.addCleanup(setattr, runtime, "RUN_IN_FLIGHT", False)
         with (
             self._settings(),
             mock.patch.object(deferred, "_reactor_running", return_value=True),
@@ -303,6 +307,52 @@ class TestCmdMudification(BaseEvenniaTestCase):
             captured["at_err"](RuntimeError("boom"))
         assert runtime.RUN_IN_FLIGHT is False
 
+    def test_failed_load_refreshes_the_validation_summary(self) -> None:
+        caller = self._caller()
+        with self._settings():
+            self._run(caller, "validate")
+            assert runtime.LAST_VALIDATION is not None
+            assert runtime.LAST_VALIDATION.errors == []
+        with tempfile.TemporaryDirectory() as directory:
+            _write_dangling(directory)
+            with self.settings(MUDIFICATION_CONTENT_PATH=directory):
+                assert "nothing was applied" in self._run(caller, "plan")
+                output = self._run(caller, "status")
+        assert "last validation: 1 entities" in output
+        assert "1 errors" in output
+
+    def test_status_reports_the_errors_apply_would_refuse(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            Path(directory, "c.yaml").write_text(
+                "schema_version: 1\nentities:\n  - id: a\n    kind: object\n"
+                "    key: a\n    typeclass: nowhere.Missing\n",
+                encoding="utf-8",
+            )
+            with self.settings(MUDIFICATION_CONTENT_PATH=directory):
+                output = self._run(self._caller(), "status")
+        assert "typeclass-unresolved" in output
+
+    def test_apply_records_entities_actually_applied(self) -> None:
+        caller = self._caller()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copy(CORPUS / "village.yaml", root / "village.yaml")
+            with (
+                self.settings(MUDIFICATION_CONTENT_PATH=str(root)),
+                mock.patch.object(runtime, "LAST_APPLIED", None),
+            ):
+                self._run(caller, "apply confirm")
+                assert runtime.LAST_APPLIED == 4
+                content = root / "village.yaml"
+                content.write_text(
+                    content.read_text(encoding="utf-8").replace(
+                        "The village square", "The square"
+                    ),
+                    encoding="utf-8",
+                )
+                self._run(caller, "apply confirm")
+                assert runtime.LAST_APPLIED == 1
+
     def test_prune_reports_then_confirms(self) -> None:
         caller = self._caller()
         with self._settings():
@@ -355,7 +405,6 @@ class TestValidateOnStart(BaseEvenniaTestCase):
         assert summary is not None
         assert summary.entity_count == 1
         assert [finding.code for finding in summary.errors] == ["dangling-ref"]
-        assert summary.warnings == []
         assert runtime.LAST_VALIDATION is summary
 
     def test_records_load_failure(self) -> None:
