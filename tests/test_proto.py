@@ -5,6 +5,7 @@ from typing import Any
 from evennia.prototypes.spawner import spawn
 from evennia.utils.test_resources import BaseEvenniaTestCase
 
+from evennia_mudification import proto
 from evennia_mudification.compile import ContentIndex
 from evennia_mudification.identity import ENTITY_TAG_CATEGORY, SOURCE_TAG_CATEGORY
 from evennia_mudification.models import Bundle
@@ -115,6 +116,86 @@ class TestPrototypeTemplates(BaseEvenniaTestCase):
             index.entities["guard"], index=index, resolve_ref=_resolver
         )
         assert prototype["typeclass"] == "evennia.objects.objects.DefaultCharacter"
+
+
+class TestTemplateRegistry(BaseEvenniaTestCase):
+    """The module-prototype namespace the engine registers into."""
+
+    def _snapshot_registry(self) -> None:
+        from evennia.prototypes.prototypes import _MODULE_PROTOTYPES
+
+        originals = dict(_MODULE_PROTOTYPES)
+        original_keys = set(proto._REGISTERED_KEYS)
+
+        def restore() -> None:
+            _MODULE_PROTOTYPES.clear()
+            _MODULE_PROTOTYPES.update(originals)
+            proto._REGISTERED_KEYS.clear()
+            proto._REGISTERED_KEYS.update(original_keys)
+
+        self.addCleanup(restore)
+
+    def _template_index(self, *, hp: int = 5) -> ContentIndex:
+        return _index_from(
+            {
+                "schema_version": 1,
+                "entities": [
+                    {
+                        "id": "tpl",
+                        "kind": "prototype",
+                        "key": "goblin template",
+                        "typeclass": "evennia.objects.objects.DefaultObject",
+                        "attrs": {"hp": hp},
+                    }
+                ],
+            }
+        )
+
+    def test_collision_with_a_game_prototype_is_refused(self) -> None:
+        from evennia.prototypes.prototypes import (
+            load_module_prototypes,
+            search_prototype,
+        )
+
+        from evennia_mudification.proto import register_prototypes
+
+        self._snapshot_registry()
+        load_module_prototypes({"prototype_key": "tpl", "key": "GAME TEMPLATE"})
+
+        assert register_prototypes(self._template_index()) == 0
+        (found,) = search_prototype("tpl", no_db=True)
+        assert found["key"] == "GAME TEMPLATE"
+        assert proto.registered_keys() == frozenset()
+
+    def test_engine_templates_refresh_without_self_collision(self) -> None:
+        from evennia.prototypes.prototypes import search_prototype
+
+        from evennia_mudification.proto import register_prototypes
+
+        self._snapshot_registry()
+        assert register_prototypes(self._template_index(hp=5)) == 1
+        assert register_prototypes(self._template_index(hp=7)) == 1
+        (found,) = search_prototype("tpl", no_db=True)
+        attrs = {entry[0]: entry[1] for entry in found["attrs"]}
+        assert attrs["hp"] == 7
+        assert proto.registered_keys() == frozenset({"tpl"})
+
+    def test_undeclared_templates_are_deregistered(self) -> None:
+        from evennia.prototypes.prototypes import search_prototype
+
+        from evennia_mudification.proto import register_prototypes
+
+        self._snapshot_registry()
+        assert register_prototypes(self._template_index()) == 1
+        no_templates = _index_from(
+            {
+                "schema_version": 1,
+                "entities": [{"id": "a", "kind": "room", "key": "a"}],
+            }
+        )
+        assert register_prototypes(no_templates) == 0
+        assert search_prototype("tpl", no_db=True) == []
+        assert proto.registered_keys() == frozenset()
 
 
 class TestProto(BaseEvenniaTestCase):

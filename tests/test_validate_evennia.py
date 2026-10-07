@@ -105,6 +105,44 @@ def test_unresolvable_typeclass(tmp_path: Path) -> None:
     assert [finding.severity for finding in relaxed] == ["warning"]
 
 
+def test_template_key_taken_by_a_game_prototype_is_error(tmp_path: Path) -> None:
+    from evennia.prototypes.prototypes import _MODULE_PROTOTYPES, load_module_prototypes
+
+    from evennia_mudification import proto
+
+    originals = dict(_MODULE_PROTOTYPES)
+    try:
+        load_module_prototypes({"prototype_key": "tpl", "key": "GAME TEMPLATE"})
+        index = _index(tmp_path, "  - id: tpl\n    kind: prototype\n    key: tpl\n")
+        findings = validate_index(index, check_evennia=True)
+    finally:
+        _MODULE_PROTOTYPES.clear()
+        _MODULE_PROTOTYPES.update(originals)
+        proto._REGISTERED_KEYS.clear()
+    assert [finding.code for finding in findings] == ["prototype-key-taken"]
+    assert "'tpl'" in findings[0].message
+
+
+def test_engine_registered_template_is_not_a_collision(tmp_path: Path) -> None:
+    from evennia.prototypes.prototypes import _MODULE_PROTOTYPES
+
+    from evennia_mudification import proto
+    from evennia_mudification.proto import register_prototypes
+
+    originals = dict(_MODULE_PROTOTYPES)
+    original_keys = set(proto._REGISTERED_KEYS)
+    try:
+        index = _index(tmp_path, "  - id: tpl\n    kind: prototype\n    key: tpl\n")
+        register_prototypes(index)
+        findings = validate_index(index, check_evennia=True)
+    finally:
+        _MODULE_PROTOTYPES.clear()
+        _MODULE_PROTOTYPES.update(originals)
+        proto._REGISTERED_KEYS.clear()
+        proto._REGISTERED_KEYS.update(original_keys)
+    assert "prototype-key-taken" not in [finding.code for finding in findings]
+
+
 def test_checks_skipped_without_evennia(tmp_path: Path) -> None:
     index = _index(
         tmp_path,

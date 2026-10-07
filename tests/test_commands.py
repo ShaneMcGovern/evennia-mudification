@@ -111,7 +111,7 @@ class TestCmdMudification(BaseEvenniaTestCase):
                 output = self._run(self._caller(), "validate")
         assert "dangling-ref" in output
 
-    def test_load_registers_prototypes(self) -> None:
+    def test_inspection_commands_do_not_register_prototypes(self) -> None:
         caller = self._caller()
         with (
             self._settings(),
@@ -120,7 +120,24 @@ class TestCmdMudification(BaseEvenniaTestCase):
             ) as mocked,
         ):
             self._run(caller, "validate")
-        assert mocked.call_count == 1
+            self._run(caller, "plan")
+            self._run(caller, "status")
+        assert mocked.call_count == 0
+
+    def test_confirmed_runs_register_prototypes(self) -> None:
+        caller = self._caller()
+        with (
+            self._settings(),
+            mock.patch(
+                "evennia_mudification.commands.register_prototypes", return_value=0
+            ) as mocked,
+        ):
+            self._run(caller, "apply")
+            assert mocked.call_count == 0
+            self._run(caller, "apply confirm")
+            assert mocked.call_count == 1
+            self._run(caller, "prune confirm")
+        assert mocked.call_count == 2
 
     def test_missing_content_path(self) -> None:
         with self.settings(MUDIFICATION_CONTENT_PATH=None):
