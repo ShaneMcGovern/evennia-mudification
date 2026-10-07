@@ -8,7 +8,7 @@ from typing import Any, Literal
 from evennia.prototypes.spawner import flatten_diff, prototype_diff_from_object
 
 from evennia_mudification.compile import ContentIndex
-from evennia_mudification.identity import find_entity_objects, managed_ids
+from evennia_mudification.identity import ManagedWorld, load_managed_world
 from evennia_mudification.models import PrototypeEntity
 from evennia_mudification.proto import (
     RefResolver,
@@ -163,20 +163,27 @@ def declared_diff(prototype: dict[str, Any], obj: Any) -> dict[str, Any]:
     return declared
 
 
-def build_plan(index: ContentIndex, *, resolve_ref: RefResolver) -> Plan:
+def build_plan(
+    index: ContentIndex,
+    *,
+    resolve_ref: RefResolver,
+    world: ManagedWorld | None = None,
+) -> Plan:
     """Diff every entity against the database; prototype templates are skipped."""
+    if world is None:
+        world = load_managed_world()
     plan = Plan()
     for entity in index.entities.values():
         if isinstance(entity, PrototypeEntity):
             # Templates are not world objects; they have no plan of their own.
             continue
-        matches = find_entity_objects(entity.id)
-        existing = matches[0] if matches else None
+        existing = world.get(entity.id)
         if existing is None:
             plan.changes.append(PlannedChange(entity.id, "create"))
             continue
-        if len(matches) > 1:
-            plan.duplicates[entity.id] = len(matches)
+        copies = world.all(entity.id)
+        if len(copies) > 1:
+            plan.duplicates[entity.id] = len(copies)
         unresolved: list[str] = []
 
         # Sentinel for a ref whose target is declared in this same index but
@@ -207,5 +214,5 @@ def build_plan(index: ContentIndex, *, resolve_ref: RefResolver) -> Plan:
         for entity in index.entities.values()
         if not isinstance(entity, PrototypeEntity)
     }
-    plan.retirements = managed_ids() - managed
+    plan.retirements = world.ids - managed
     return plan
