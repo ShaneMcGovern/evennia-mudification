@@ -7,6 +7,14 @@ from pathlib import Path
 from typing import Protocol
 
 
+class SourceReadError(Exception):
+    """A bundle file could not be read; `path` anchors the finding."""
+
+    def __init__(self, path: Path, cause: Exception) -> None:
+        super().__init__(f"{path}: {cause}")
+        self.path = path
+
+
 @dataclass(frozen=True)
 class SourceDocument:
     """One raw bundle file read from a content source."""
@@ -36,8 +44,13 @@ class LocalDirectorySource:
                 *self.root.glob("**/*.yml"),
             ]
         )
-        return [
-            SourceDocument(path=path, text=path.read_text(encoding="utf-8"))
-            for path in paths
-            if path.is_file()
-        ]
+        documents = []
+        for path in paths:
+            if not path.is_file():
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError) as err:
+                raise SourceReadError(path, err) from err
+            documents.append(SourceDocument(path=path, text=text))
+        return documents

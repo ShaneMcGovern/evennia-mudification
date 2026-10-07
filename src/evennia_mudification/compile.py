@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from typing import Any
 
 import yaml
 from pydantic import ValidationError
@@ -29,6 +30,35 @@ class ContentIndex:
     entity_sources: dict[str, str] = field(default_factory=dict)
     sources: list[str] = field(default_factory=list)
     findings: list[Finding] = field(default_factory=list)
+    # Synthesized ids (counted instances, reverse exits) mapped to the declared
+    # id they were built from.
+    derived_ids: dict[str, str] = field(default_factory=dict)
+
+
+def _error_location(error: Mapping[str, Any], raw: Any) -> str:
+    """Render a pydantic error loc without the discriminated-union tag.
+
+    Pydantic inserts the union tag into the loc (`entities.0.room.licks`),
+    naming a part the author never wrote; the kind value on the parsed node
+    identifies and drops it.
+    """
+    parts: list[str] = []
+    node = raw
+    for part in error["loc"]:
+        if (
+            isinstance(part, str)
+            and isinstance(node, dict)
+            and node.get("kind") == part
+        ):
+            continue
+        parts.append(str(part))
+        if isinstance(part, int) and isinstance(node, list) and part < len(node):
+            node = node[part]
+        elif isinstance(part, str) and isinstance(node, dict):
+            node = node.get(part)
+        else:
+            node = None
+    return ".".join(parts)
 
 
 def compile_documents(documents: list[SourceDocument]) -> ContentIndex:
@@ -60,9 +90,10 @@ def compile_documents(documents: list[SourceDocument]) -> ContentIndex:
             bundle = Bundle.model_validate(raw)
         except ValidationError as err:
             for error in err.errors():
-                location = ".".join(str(part) for part in error["loc"])
+                location = _error_location(error, raw)
+                prefix = f"{location}: " if location else ""
                 index.findings.append(
-                    Finding("error", "schema", f"{location}: {error['msg']}", source)
+                    Finding("error", "schema", f"{prefix}{error['msg']}", source)
                 )
             continue
         for entity in bundle.entities:
@@ -183,6 +214,7 @@ def _expand_counts(index: ContentIndex) -> None:
             )
             index.entities[instance.id] = instance
             index.entity_sources[instance.id] = source
+            index.derived_ids[instance.id] = entity.id
 
 
 def _synthesize_reverse_exits(index: ContentIndex) -> None:
@@ -220,3 +252,4 @@ def _synthesize_reverse_exits(index: ContentIndex) -> None:
         )
         index.entities[reverse_id] = reverse
         index.entity_sources[reverse_id] = source
+        index.derived_ids[reverse_id] = entity.id
