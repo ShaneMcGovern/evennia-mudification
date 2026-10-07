@@ -83,8 +83,8 @@ class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typ
             self.msg(f"{len(errors)} validation errors; nothing was applied.")
             return None
         # Every successful load is also the latest validation, so `status`
-        # reports what this run saw.
-        register_prototypes(index)
+        # reports what this run saw. Prototype registration is deliberately not
+        # here: inspection commands must not mutate the prototype namespace.
         runtime.LAST_VALIDATION = runtime.ValidationSummary(
             content_path=str(content_path),
             entity_count=len(index.entities),
@@ -110,6 +110,7 @@ class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typ
             self.msg(plan.render())
             self.msg("run 'mudification apply confirm' to apply these changes.")
             return
+        register_prototypes(index)
         deferred = run_deferred(
             partial(
                 apply_plan,
@@ -152,6 +153,9 @@ class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typ
             self.msg(prune_plan.render())
             self.msg("run 'mudification prune confirm' to execute these changes.")
             return
+        # Confirmed runs keep the module-prototype namespace in step with the
+        # content: declared templates register, removed ones deregister.
+        register_prototypes(index)
         deferred = run_deferred(
             partial(execute_prune, prune_plan),
             at_return=lambda report: self.msg(report.render()),

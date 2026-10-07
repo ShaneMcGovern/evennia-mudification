@@ -248,12 +248,13 @@ entities:
 
 Validating that bundle reports `3 entities, 0 errors, 0 warnings`. The goblin guard spawns with `hp: 5` from the template and its own key and location. A typeclass declared on the object wins over the template's; when the object declares none, the template's applies.
 
-In the game process, any successful in-game load (`mudification validate`, `plan`, `apply` or `prune`) and the server start check register every template with Evennia as a read-only module prototype. The offline CLI never registers. In game, `spawn goblin_tpl` works, and the template appears in OLC's prototype list. Templates are not planned or applied as objects themselves.
+In the game process, the server start check and a confirmed `apply` or `prune` register every template with Evennia as a read-only module prototype. The inspection commands (`validate`, `plan`, `status`) never touch the prototype namespace, and the offline CLI never registers. In game, `spawn goblin_tpl` works, and the template appears in OLC's prototype list. Templates are not planned or applied as objects themselves.
 
-Two limitations to know:
+A template id is also its prototype key. A key the game already ships through `settings.PROTOTYPE_MODULES` is never overwritten: validation reports `prototype-key-taken` and nothing is applied, so rename the content id. A template removed from the content is deregistered by the next confirmed apply or prune, or by a server restart.
+
+One limitation to know:
 
 - Editing a template does not propagate to children that already exist. The change affects future spawns only, tracked in [issue 8](https://github.com/ShaneMcGovern/evennia-mudification/issues/8).
-- A template removed from content stays spawnable until the next server restart.
 
 ## What apply owns
 
@@ -282,7 +283,7 @@ The rules:
 Validation runs in four layers:
 
 1. Structural: the file parses as YAML, matches the bundle schema, and passes the compile rules for ids, nesting and counts. Reading the content root and its files is here too.
-2. Semantic: references resolve to entities of the right kind, tags avoid the reserved categories, and, when Evennia is importable, protfunc names, lockstrings and typeclass paths are checked against Evennia itself.
+2. Semantic: references resolve to entities of the right kind, tags avoid the reserved categories, and, when Evennia is importable, protfunc names, lockstrings, typeclass paths and template key collisions are checked against Evennia itself.
 3. Plan-time: the diff against the live database, retirements, and the prune fallback check.
 4. Runtime: per-entity failures while apply or prune runs. Failures are collected, the run continues, and the summary reports each failed entity.
 
@@ -309,6 +310,7 @@ The finding codes:
 | `home-not-room-or-object` | error | An object's `home` reference points at an exit or a template. |
 | `prototype-not-found` | error | A `prototype` reference matches no declared entity. |
 | `prototype-not-a-template` | error | A `prototype` reference points at an entity that is not `kind: prototype`. |
+| `prototype-key-taken` | error | A template id collides with a prototype key the game already ships (`settings.PROTOTYPE_MODULES`). |
 | `reserved-tag-category` | error | A tag claims a category the engine reserves, `mudification` or `mudification_source`. |
 | `unknown-protfunc` | error | A `$name(...)` reference in a key, desc or attribute is not a registered Evennia protfunc. |
 | `invalid-lock` | error | Evennia rejects a declared lockstring. |
