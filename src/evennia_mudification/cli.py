@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 
+from evennia_mudification.findings import Finding
 from evennia_mudification.loading import load_content
 from evennia_mudification.schema import generate_json_schema, write_schema
 
@@ -60,9 +61,23 @@ def _validate(root: Path, *, as_json: bool) -> int:
     # import chdirs the process towards `/`, which would turn a relative
     # content path into a missing root.
     root = root.resolve()
+    evennia_available = _ensure_evennia()
     index, findings = load_content(
-        root, check_evennia=_ensure_evennia(), typeclass_severity="warning"
+        root, check_evennia=evennia_available, typeclass_severity="warning"
     )
+    if not evennia_available:
+        # A run that skipped the semantic layer must say so in both output
+        # modes, or a CI cannot tell "checked and clean" from "not checked".
+        findings = [
+            Finding(
+                "warning",
+                "semantic-checks-skipped",
+                "Evennia is not importable here; protfunc, lockstring and "
+                "typeclass checks did not run",
+                str(root),
+            ),
+            *findings,
+        ]
     errors = [finding for finding in findings if finding.severity == "error"]
     if as_json:
         print(

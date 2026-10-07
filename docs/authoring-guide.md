@@ -303,6 +303,7 @@ The finding codes:
 | `no-bundles-found` | error | The content root holds no `*.yaml` or `*.yml` files. |
 | `empty-bundle` | error | A bundle file parses to nothing, for example an empty or comment-only file. |
 | `load-error` | error | A bundle could not be read or loaded, for example an unreadable file or invalid UTF-8. |
+| `semantic-checks-skipped` | warning | The CLI could not import Evennia, so the Evennia-dependent checks did not run. |
 | `dangling-ref` | error | A `@id` reference matches no declared entity. |
 | `location-not-room` | error | An exit's `location` reference points at something that is not a room. |
 | `destination-not-room` | error | An exit's `destination` reference points at something that is not a room. |
@@ -315,7 +316,7 @@ The finding codes:
 | `reserved-tag-category` | error | A tag claims a category the engine reserves, `mudification` or `mudification_source`. |
 | `unknown-protfunc` | error | A `$name(...)` reference in a key, desc or attribute is not a registered Evennia protfunc. |
 | `invalid-lock` | error | Evennia rejects a declared lockstring. |
-| `typeclass-unresolved` | error in game, warning from the CLI | A typeclass path cannot be imported in this environment, resolved the way the spawner does through `settings.TYPECLASS_PATHS`. |
+| `typeclass-unresolved` | error in game, warning from the CLI | A typeclass path cannot be imported in this environment, resolved the way the spawner does through `settings.TYPECLASS_PATHS`. The CLI warns rather than refusing because it runs outside the game and may not have the game's typeclass modules on its path. |
 | `fallback-missing` | error | A prune plan needs the fallback room for a surviving occupant and no usable fallback resolves. |
 
 ## Settings
@@ -348,7 +349,7 @@ The command needs `Developer` permission. Its alias is `evennia_mudification`, a
 
 The CLI covers validation in CI, or in a pre-commit hook you add yourself:
 
-- `mudification validate [path] [--json]`: validate a content root. Prints one line per finding and a summary line; exit code 0 when clean, 1 when there are errors. `--json` emits the findings as JSON.
+- `mudification validate [path] [--json]`: validate a content root. Prints one line per finding and a summary line; exit code 0 when clean, 1 when there are errors. `--json` emits the findings as JSON. When Evennia is not importable, the protfunc, lockstring and typeclass checks cannot run; the run says so with a `semantic-checks-skipped` warning rather than reporting a clean bill of health.
 - `mudification schema [--write PATH]`: print the JSON Schema for bundles, or write it to PATH for editors, defaulting to `schema/mudification.schema.json`.
 
 ## The full example
