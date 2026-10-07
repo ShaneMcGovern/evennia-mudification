@@ -10,7 +10,11 @@ from evennia.prototypes import spawner
 from evennia_mudification.compile import ContentIndex
 from evennia_mudification.identity import find_entity_object
 from evennia_mudification.plan import Plan, PlannedChange
-from evennia_mudification.proto import RefResolver, entity_to_prototype
+from evennia_mudification.proto import (
+    RefResolver,
+    effective_prototype,
+    entity_to_prototype,
+)
 
 _KIND_ORDER = {"room": 0, "exit": 1, "object": 2}
 
@@ -105,8 +109,8 @@ def apply_plan(
     for change in updates:
         entity = index.entities[change.entity_id]
         try:
-            prototype = entity_to_prototype(
-                entity, index=index, resolve_ref=resolve_ref
+            prototype = effective_prototype(
+                entity_to_prototype(entity, index=index, resolve_ref=resolve_ref)
             )
             obj = find_entity_object(change.entity_id)
             spawner.batch_update_objects_with_prototype(

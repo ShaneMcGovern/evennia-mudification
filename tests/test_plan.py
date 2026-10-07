@@ -9,11 +9,12 @@ from evennia.prototypes.spawner import spawn
 from evennia.utils import create
 from evennia.utils.test_resources import BaseEvenniaTestCase
 
+from evennia_mudification import proto
 from evennia_mudification.apply import apply_plan
 from evennia_mudification.compile import ContentIndex, compile_documents
 from evennia_mudification.identity import ENTITY_TAG_CATEGORY, SOURCE_TAG_CATEGORY
 from evennia_mudification.plan import Plan, build_plan
-from evennia_mudification.proto import entity_to_prototype
+from evennia_mudification.proto import entity_to_prototype, register_prototypes
 from evennia_mudification.source import LocalDirectorySource
 
 CORPUS = Path(__file__).parent / "fixtures" / "corpus" / "basic"
@@ -154,6 +155,25 @@ class TestPlan(BaseEvenniaTestCase):
         assert updates[0].render().startswith("update square: ")
         assert "retire rogue (reported only)" in plan.render()
         assert not plan.is_empty()
+
+    def test_live_id_now_declared_as_a_prototype_is_retired(self) -> None:
+        create.create_object(
+            "evennia.objects.objects.DefaultObject",
+            key="old guard",
+            tags=[
+                ("guard", ENTITY_TAG_CATEGORY),
+                ("village.yaml", SOURCE_TAG_CATEGORY),
+            ],
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "c.yaml").write_text(
+                "schema_version: 1\nentities:\n"
+                "  - id: guard\n    kind: prototype\n    key: guard template\n"
+            )
+            plan = build_plan(self._index(root), resolve_ref=self._resolver)
+        assert plan.retirements == {"guard"}
+        assert "retire guard (reported only)" in plan.render()
 
     def test_empty_plan_renders_no_changes(self) -> None:
         plan = Plan()
@@ -341,3 +361,74 @@ class TestPlan(BaseEvenniaTestCase):
             assert set(plan.changes[0].diff) == {"tags"}
             assert apply_plan(plan, index=index2, resolve_ref=self._resolver).ok
             assert build_plan(self._index(root), resolve_ref=self._resolver).is_empty()
+
+
+class TestTemplateInheritance(BaseEvenniaTestCase):
+    """Plans for children of registered templates."""
+
+    def _snapshot_registry(self) -> None:
+        from evennia.prototypes.prototypes import _MODULE_PROTOTYPES
+
+        originals = dict(_MODULE_PROTOTYPES)
+        # The engine's own key bookkeeping only exists once the registry fix
+        # lands; tolerate its absence so these tests can run either way.
+        keys = getattr(proto, "_REGISTERED_KEYS", None)
+        original_keys: set[str] = set(keys) if keys is not None else set()
+
+        def restore() -> None:
+            _MODULE_PROTOTYPES.clear()
+            _MODULE_PROTOTYPES.update(originals)
+            if keys is not None:
+                keys.clear()
+                keys.update(original_keys)
+
+        self.addCleanup(restore)
+
+    def _write_content(self, root: Path, *, parent: str) -> None:
+        (root / "c.yaml").write_text(
+            "schema_version: 1\nentities:\n"
+            "  - id: tpl\n    kind: prototype\n    key: tpl\n"
+            "    typeclass: evennia.objects.objects.DefaultObject\n"
+            "    attrs: {hp: 5}\n"
+            "  - id: tpl2\n    kind: prototype\n    key: tpl2\n"
+            "    typeclass: evennia.objects.objects.DefaultObject\n"
+            "    attrs: {hp: 9}\n"
+            "  - id: guard\n    kind: object\n    key: a guard\n"
+            f'    prototype: "@{parent}"\n',
+            encoding="utf-8",
+        )
+
+    def _spawned_child(self, root: Path) -> None:
+        index = compile_documents(LocalDirectorySource(root).documents())
+        register_prototypes(index)
+        prototype = entity_to_prototype(
+            index.entities["guard"], index=index, resolve_ref=_any_ref
+        )
+        spawn(prototype)
+
+    def test_matching_inherited_values_stay_quiet(self) -> None:
+        self._snapshot_registry()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._write_content(root, parent="tpl")
+            self._spawned_child(root)
+            index = compile_documents(LocalDirectorySource(root).documents())
+            plan = build_plan(index, resolve_ref=_any_ref)
+        assert "guard" not in {change.entity_id for change in plan.changes}
+
+    def test_changed_prototype_ref_updates_inherited_fields(self) -> None:
+        self._snapshot_registry()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._write_content(root, parent="tpl")
+            self._spawned_child(root)
+            self._write_content(root, parent="tpl2")
+            index = compile_documents(LocalDirectorySource(root).documents())
+            plan = build_plan(index, resolve_ref=_any_ref)
+        updates = {change.entity_id: change for change in plan.changes}
+        assert "guard" in updates
+        assert "attrs" in updates["guard"].diff
+
+
+def _any_ref(ref: str) -> Any:
+    return ref

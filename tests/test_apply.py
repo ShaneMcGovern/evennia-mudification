@@ -11,12 +11,17 @@ from evennia.prototypes import spawner
 from evennia.utils.test_resources import BaseEvenniaTestCase
 
 from evennia_mudification import apply as apply_module
+from evennia_mudification import proto
 from evennia_mudification.apply import apply_plan
 from evennia_mudification.compile import ContentIndex, compile_documents
 from evennia_mudification.identity import find_entity_object
 from evennia_mudification.models import EntityBase, ref_target
 from evennia_mudification.plan import build_plan
-from evennia_mudification.proto import RefResolver, entity_to_prototype
+from evennia_mudification.proto import (
+    RefResolver,
+    entity_to_prototype,
+    register_prototypes,
+)
 from evennia_mudification.source import LocalDirectorySource
 
 CORPUS = Path(__file__).parent / "fixtures" / "corpus" / "basic"
@@ -179,3 +184,71 @@ class TestApply(BaseEvenniaTestCase):
             assert [result.entity_id for result in failed] == ["inn"]
             assert failed[0].error is not None
             assert "boom" in failed[0].error
+
+
+class TestTemplateUpdates(BaseEvenniaTestCase):
+    def _index(self, root: Path) -> ContentIndex:
+        return compile_documents(LocalDirectorySource(root).documents())
+
+    def _resolver(self, ref: str) -> Any:
+        obj = find_entity_object(ref_target(ref))
+        if obj is None:
+            raise LookupError(f"reference '{ref}' has not been applied yet")
+        return obj
+
+    def _snapshot_registry(self) -> None:
+        from evennia.prototypes.prototypes import _MODULE_PROTOTYPES
+
+        originals = dict(_MODULE_PROTOTYPES)
+        # The engine's own key bookkeeping only exists once the registry fix
+        # lands; tolerate its absence so these tests can run either way.
+        keys = getattr(proto, "_REGISTERED_KEYS", None)
+        original_keys: set[str] = set(keys) if keys is not None else set()
+
+        def restore() -> None:
+            _MODULE_PROTOTYPES.clear()
+            _MODULE_PROTOTYPES.update(originals)
+            if keys is not None:
+                keys.clear()
+                keys.update(original_keys)
+
+        self.addCleanup(restore)
+
+    def _write_content(self, root: Path, *, parent: str) -> None:
+        (root / "c.yaml").write_text(
+            "schema_version: 1\nentities:\n"
+            "  - id: tpl\n    kind: prototype\n    key: tpl\n"
+            "    typeclass: evennia.objects.objects.DefaultObject\n"
+            "    attrs: {hp: 5}\n"
+            "  - id: tpl2\n    kind: prototype\n    key: tpl2\n"
+            "    typeclass: evennia.objects.objects.DefaultObject\n"
+            "    attrs: {hp: 9}\n"
+            "  - id: guard\n    kind: object\n    key: a guard\n"
+            f'    prototype: "@{parent}"\n',
+            encoding="utf-8",
+        )
+
+    def test_parent_change_updates_inherited_values(self) -> None:
+        self._snapshot_registry()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._write_content(root, parent="tpl")
+            index = self._index(root)
+            register_prototypes(index)
+            assert apply_plan(
+                build_plan(index, resolve_ref=self._resolver),
+                index=index,
+                resolve_ref=self._resolver,
+            ).ok
+            guard = find_entity_object("guard")
+            assert guard is not None
+            assert guard.attributes.get("hp") == 5
+
+            self._write_content(root, parent="tpl2")
+            index2 = self._index(root)
+            assert apply_plan(
+                build_plan(index2, resolve_ref=self._resolver),
+                index=index2,
+                resolve_ref=self._resolver,
+            ).ok
+        assert guard.attributes.get("hp") == 9

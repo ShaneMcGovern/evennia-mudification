@@ -200,9 +200,7 @@ The CLI covers validation in CI, or in a pre-commit hook you add yourself:
 
 ## Known limitations
 
-- Editing a template does not propagate to children that already exist; the
-  change only affects future spawns. Tracked in
-  [issue #8](https://github.com/ShaneMcGovern/evennia-mudification/issues/8).
+- Dropping a declaration never removes a live value; removal happens only through retirement, which prune executes.
 - A template removed from content stays spawnable until the next server restart.
 
 ## Development
