@@ -353,6 +353,72 @@ class TestCmdMudification(BaseEvenniaTestCase):
                 self._run(caller, "apply confirm")
                 assert runtime.LAST_APPLIED == 1
 
+    def _command(self, caller: Any, args: str) -> tuple[Any, list[str]]:
+        output: list[str] = []
+        cmd = CmdMudification()
+        cmd.caller = caller
+        cmd.args = args
+        cmd.msg = lambda text=None, **kwargs: output.append(str(text))
+        return cmd, output
+
+    def test_deferred_apply_failure_is_reported(self) -> None:
+        cmd, output = self._command(self._caller(), "apply confirm")
+        with (
+            self.settings(MUDIFICATION_CONTENT_PATH=str(CORPUS)),
+            mock.patch.object(deferred, "_reactor_running", return_value=True),
+            mock.patch.object(deferred, "_deferral_safe", return_value=True),
+            mock.patch("evennia.utils.utils.run_async") as run_async_mock,
+        ):
+            cmd.func()
+            assert any("applying off-thread" in line for line in output)
+            at_err = run_async_mock.call_args.kwargs["at_err"]
+            at_err(RuntimeError("boom"))
+        assert any("apply failed: boom" in line for line in output)
+
+    def test_deferred_prune_failure_is_reported(self) -> None:
+        cmd, output = self._command(self._caller(), "prune confirm")
+        with (
+            self.settings(MUDIFICATION_CONTENT_PATH=str(CORPUS)),
+            mock.patch.object(deferred, "_reactor_running", return_value=True),
+            mock.patch.object(deferred, "_deferral_safe", return_value=True),
+            mock.patch("evennia.utils.utils.run_async") as run_async_mock,
+        ):
+            cmd.func()
+            assert any("pruning off-thread" in line for line in output)
+            at_err = run_async_mock.call_args.kwargs["at_err"]
+            at_err(RuntimeError("boom"))
+        assert any("prune failed: boom" in line for line in output)
+
+    def test_prune_refuses_invalid_content(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _write_dangling(directory)
+            with self.settings(MUDIFICATION_CONTENT_PATH=directory):
+                output = self._run(self._caller(), "prune")
+        assert "nothing was applied" in output
+
+    def test_prune_reports_plan_errors(self) -> None:
+        from evennia_mudification.findings import Finding
+        from evennia_mudification.prune import PrunePlan
+
+        refusal = PrunePlan(
+            errors=[Finding("error", "fallback-missing", "no fallback", "prune")]
+        )
+        with (
+            self._settings(),
+            mock.patch(
+                "evennia_mudification.commands.plan_prune", return_value=refusal
+            ),
+        ):
+            output = self._run(self._caller(), "prune")
+        assert "fallback-missing" in output
+
+    def test_status_reports_content_errors(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _write_dangling(directory)
+            with self.settings(MUDIFICATION_CONTENT_PATH=directory):
+                output = self._run(self._caller(), "status")
+        assert "dangling-ref" in output
+
     def test_prune_reports_then_confirms(self) -> None:
         caller = self._caller()
         with self._settings():

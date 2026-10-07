@@ -150,3 +150,17 @@ def test_checks_skipped_without_evennia(tmp_path: Path) -> None:
         '    attrs:\n      roll: "$definitely_not_a_protfunc(1)"\n',
     )
     assert validate_index(index) == []
+
+
+def test_unknown_protfunc_nested_in_attrs_is_error(tmp_path: Path) -> None:
+    index = _index(
+        tmp_path,
+        "  - id: b\n    kind: object\n    key: b\n"
+        '    attrs:\n      nested:\n        inner: "$bogus()"\n'
+        '        listed: ["$alsonope()"]\n',
+    )
+    findings = validate_index(index, check_evennia=True)
+    assert [finding.code for finding in findings] == [
+        "unknown-protfunc",
+        "unknown-protfunc",
+    ]

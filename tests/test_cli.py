@@ -146,6 +146,18 @@ def test_typeclass_problems_warn_in_the_cli(
     assert "typeclass-unresolved" in capsys.readouterr().out
 
 
+def test_ensure_evennia_reports_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
+    import django
+
+    from evennia_mudification import cli
+
+    def _boom() -> None:
+        raise RuntimeError("no settings")
+
+    monkeypatch.setattr(django, "setup", _boom)
+    assert cli._ensure_evennia() is False
+
+
 def test_empty_environment_variable_falls_back_to_content(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

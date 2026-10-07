@@ -91,6 +91,9 @@ class TestLifecycle(BaseEvenniaTestCase):
                 "evennia.objects.objects.DefaultObject",
                 key="a stray crate",
                 location=cellar,
+                # Explicit, so the section below does not depend on
+                # DEFAULT_HOME resolving to whichever room was created first.
+                home=hall,
             )
             world.write_text(
                 world.read_text(encoding="utf-8")
