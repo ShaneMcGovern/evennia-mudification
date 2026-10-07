@@ -65,6 +65,12 @@ class PrunePlan:
         return "\n".join(lines)
 
 
+def _finding_source() -> str:
+    """Anchor plan-time findings at the configured content root."""
+    content_path = getattr(settings, "MUDIFICATION_CONTENT_PATH", None)
+    return str(content_path) if content_path else "prune"
+
+
 def _is_retired(obj: Any, retired: set[str]) -> bool:
     """True when the object carries a managed id that this run retires."""
     managed = set(obj.tags.get(category=ENTITY_TAG_CATEGORY, return_list=True))
@@ -111,7 +117,7 @@ def plan_prune(retired_ids: set[str], *, fallback: Any) -> PrunePlan:
                     "no resolvable fallback room (MUDIFICATION_FALLBACK_ROOM / "
                     "DEFAULT_HOME) for "
                     + ", ".join(occupant.key for occupant in orphaned),
-                    "prune",
+                    _finding_source(),
                 )
             )
         else:

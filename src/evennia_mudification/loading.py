@@ -6,7 +6,7 @@ from pathlib import Path
 
 from evennia_mudification.compile import ContentIndex, compile_documents
 from evennia_mudification.findings import Finding, Severity
-from evennia_mudification.source import LocalDirectorySource
+from evennia_mudification.source import LocalDirectorySource, SourceReadError
 from evennia_mudification.validate import validate_index
 
 
@@ -46,6 +46,8 @@ def load_content(
         findings = index.findings + validate_index(
             index, check_evennia=check_evennia, typeclass_severity=typeclass_severity
         )
+    except SourceReadError as err:
+        return ContentIndex(), [Finding("error", "load-error", str(err), str(err.path))]
     except Exception as err:
         return ContentIndex(), [Finding("error", "load-error", str(err), str(root))]
     return index, findings

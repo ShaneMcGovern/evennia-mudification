@@ -188,3 +188,27 @@ def test_object_home_may_be_an_object(tmp_path: Path) -> None:
         '  - id: coin\n    kind: object\n    key: coin\n    home: "@chest"\n'
     )
     assert _validate_dir(tmp_path) == []
+
+
+def test_reverse_exit_does_not_repeat_errors(tmp_path: Path) -> None:
+    (tmp_path / "c.yaml").write_text(
+        "schema_version: 1\nentities:\n"
+        "  - id: a\n    kind: room\n    key: a\n"
+        "  - id: b\n    kind: object\n    key: b\n"
+        "  - id: door\n    kind: exit\n    key: door\n"
+        '    location: "@a"\n    destination: "@b"\n    reverse: true\n'
+    )
+    findings = _validate_dir(tmp_path)
+    assert [finding.code for finding in findings] == ["destination-not-room"]
+    assert [finding.entity_id for finding in findings] == ["door"]
+
+
+def test_counted_instance_errors_are_reported_once(tmp_path: Path) -> None:
+    (tmp_path / "c.yaml").write_text(
+        "schema_version: 1\nentities:\n"
+        "  - id: rats\n    kind: object\n    key: rats\n    count: 3\n"
+        '    location: "@nope"\n'
+    )
+    findings = _validate_dir(tmp_path)
+    assert [finding.code for finding in findings] == ["dangling-ref"]
+    assert [finding.entity_id for finding in findings] == ["rats"]

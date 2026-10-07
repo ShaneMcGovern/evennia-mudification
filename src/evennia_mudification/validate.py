@@ -35,7 +35,7 @@ def validate_index(
     """Check references and kind constraints; collects every problem found."""
     findings: list[Finding] = []
     findings.extend(find_reserved_tag_issues(index))
-    for entity in index.entities.values():
+    for entity, entity_id in _reportable(index):
         source = index.entity_sources[entity.id]
         for ref, field_name, allowed, code in _refs_of(entity):
             target_id = ref_target(ref)
@@ -47,7 +47,7 @@ def validate_index(
                         "dangling-ref",
                         f"{field_name} ref '{ref}' does not match any declared entity",
                         source,
-                        entity.id,
+                        entity_id,
                     )
                 )
                 continue
@@ -59,7 +59,7 @@ def validate_index(
                         code,
                         f"{field_name} '{ref}' is not {expected}",
                         source,
-                        entity.id,
+                        entity_id,
                     )
                 )
     findings.extend(find_location_cycle_issues(index))
@@ -77,7 +77,7 @@ def find_protfunc_issues(index: ContentIndex) -> list[Finding]:
 
     available = set(FUNC_PARSER.callables)
     findings: list[Finding] = []
-    for entity in index.entities.values():
+    for entity, entity_id in _reportable(index):
         values = [entity.key, entity.desc or "", *entity.attrs.values()]
         for text in _iter_strings(values):
             for name in _RE_PROTFUNC.findall(text):
@@ -88,7 +88,7 @@ def find_protfunc_issues(index: ContentIndex) -> list[Finding]:
                             "unknown-protfunc",
                             f"${name}(...) is not a registered protfunc",
                             index.entity_sources[entity.id],
-                            entity.id,
+                            entity_id,
                         )
                     )
     return findings
@@ -99,7 +99,7 @@ def find_lockstring_issues(index: ContentIndex) -> list[Finding]:
     from evennia.locks.lockhandler import validate_lockstring
 
     findings: list[Finding] = []
-    for entity in index.entities.values():
+    for entity, entity_id in _reportable(index):
         if not entity.locks:
             continue
         lockstring = ";".join(f"{name}:{value}" for name, value in entity.locks.items())
@@ -111,7 +111,7 @@ def find_lockstring_issues(index: ContentIndex) -> list[Finding]:
                     "invalid-lock",
                     f"locks: {error}",
                     index.entity_sources[entity.id],
-                    entity.id,
+                    entity_id,
                 )
             )
     return findings
@@ -125,7 +125,7 @@ def find_typeclass_issues(
     from evennia.utils.utils import class_from_module
 
     findings: list[Finding] = []
-    for entity in index.entities.values():
+    for entity, entity_id in _reportable(index):
         if not entity.typeclass:
             continue
         try:
@@ -137,7 +137,7 @@ def find_typeclass_issues(
                     "typeclass-unresolved",
                     f"typeclass '{entity.typeclass}' did not resolve: {err}",
                     index.entity_sources[entity.id],
-                    entity.id,
+                    entity_id,
                 )
             )
     return findings
@@ -146,7 +146,7 @@ def find_typeclass_issues(
 def find_reserved_tag_issues(index: ContentIndex) -> list[Finding]:
     """Flag content tags that claim the engine's reserved tag categories."""
     findings: list[Finding] = []
-    for entity in index.entities.values():
+    for entity, entity_id in _reportable(index):
         for category in entity.tags.values():
             # Evennia stores tag categories stripped and lowercased, so compare
             # that way against the reserved ones.
@@ -157,7 +157,7 @@ def find_reserved_tag_issues(index: ContentIndex) -> list[Finding]:
                         "reserved-tag-category",
                         f"tag category '{category}' is reserved by the engine",
                         index.entity_sources[entity.id],
-                        entity.id,
+                        entity_id,
                     )
                 )
     return findings
@@ -205,7 +205,7 @@ def find_location_cycle_issues(index: ContentIndex) -> list[Finding]:
 def find_prototype_ref_issues(index: ContentIndex) -> list[Finding]:
     """Check that `prototype:` refs point at declared prototype entities."""
     findings: list[Finding] = []
-    for entity in index.entities.values():
+    for entity, entity_id in _reportable(index):
         if not isinstance(entity, ObjectEntity) or not entity.prototype:
             continue
         target = index.entities.get(ref_target(entity.prototype))
@@ -219,7 +219,7 @@ def find_prototype_ref_issues(index: ContentIndex) -> list[Finding]:
                         "does not match any declared entity"
                     ),
                     index.entity_sources[entity.id],
-                    entity.id,
+                    entity_id,
                 )
             )
         elif not isinstance(target, PrototypeEntity):
@@ -229,10 +229,29 @@ def find_prototype_ref_issues(index: ContentIndex) -> list[Finding]:
                     "prototype-not-a-template",
                     f"prototype ref '{entity.prototype}' is not a prototype entity",
                     index.entity_sources[entity.id],
-                    entity.id,
+                    entity_id,
                 )
             )
     return findings
+
+
+def _reportable(index: ContentIndex) -> Iterator[tuple[EntityBase, str]]:
+    """Yield `(entity, reported id)` pairs, folding derived duplicates.
+
+    A synthesized reverse exit is skipped while its declared exit is present,
+    because the declared entity already reports the same references. Counted
+    instances are reported once, under the declared id.
+    """
+    reported: set[str] = set()
+    for entity in index.entities.values():
+        declaring = index.derived_ids.get(entity.id)
+        if declaring is None:
+            yield entity, entity.id
+        elif declaring in index.entities or declaring in reported:
+            continue
+        else:
+            reported.add(declaring)
+            yield entity, declaring
 
 
 def _iter_strings(value: Any) -> Iterator[str]:
