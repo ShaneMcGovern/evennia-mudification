@@ -257,7 +257,9 @@ Two limitations to know:
 
 ## What apply owns
 
-Every object the engine creates carries an identity tag in the `mudification` category. Planning and retirement detection use that tag and nothing else.
+Every object the engine creates carries two identity tags: the entity id in the `mudification` category and the source file in `mudification_source`. Planning, ref resolution and retirement detection treat an object as managed only when both are present, so a hand-added tag changes nothing by itself. Removing either tag orphans the object: the engine stops seeing it, and the next plan creates a replacement for its id.
+
+When two live objects claim one id (a crash mid-apply, or a manual copy), `plan` reports `duplicate <id>: <n> live objects`; an update touches the first copy only, and prune retires every copy in one run.
 
 The declared fields are the content's to own: key, typeclass, aliases, attrs, tags, locks, permissions and the references. Everything else on a live object survives every apply. Builder edits, scripts attached in game, extra descriptions, extra aliases and extra locks are all left alone. An empty list or mapping declaration (aliases, attrs, tags, locks, permissions) is omitted rather than sent as empty, so it never clears live state. The exception is `desc`: an explicit `desc: ""` is sent, and clears the live description on update.
 

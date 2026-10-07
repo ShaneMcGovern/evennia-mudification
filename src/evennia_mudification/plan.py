@@ -8,7 +8,7 @@ from typing import Any, Literal
 from evennia.prototypes.spawner import flatten_diff, prototype_diff_from_object
 
 from evennia_mudification.compile import ContentIndex
-from evennia_mudification.identity import find_entity_object, managed_ids
+from evennia_mudification.identity import find_entity_objects, managed_ids
 from evennia_mudification.models import PrototypeEntity
 from evennia_mudification.proto import RefResolver, entity_to_prototype
 
@@ -52,6 +52,7 @@ class Plan:
 
     changes: list[PlannedChange] = field(default_factory=list)
     retirements: set[str] = field(default_factory=set)
+    duplicates: dict[str, int] = field(default_factory=dict)
 
     def is_empty(self) -> bool:
         return not self.changes and not self.retirements
@@ -61,6 +62,10 @@ class Plan:
         lines += [
             f"retire {entity_id} (reported only)"
             for entity_id in sorted(self.retirements)
+        ]
+        lines += [
+            f"duplicate {entity_id}: {count} live objects"
+            for entity_id, count in sorted(self.duplicates.items())
         ]
         return "\n".join(lines) if lines else "no changes"
 
@@ -161,10 +166,13 @@ def build_plan(index: ContentIndex, *, resolve_ref: RefResolver) -> Plan:
         if isinstance(entity, PrototypeEntity):
             # Templates are not world objects; they have no plan of their own.
             continue
-        existing = find_entity_object(entity.id)
+        matches = find_entity_objects(entity.id)
+        existing = matches[0] if matches else None
         if existing is None:
             plan.changes.append(PlannedChange(entity.id, "create"))
             continue
+        if len(matches) > 1:
+            plan.duplicates[entity.id] = len(matches)
         unresolved: list[str] = []
 
         # Sentinel for a ref whose target is declared in this same index but
@@ -181,6 +189,8 @@ def build_plan(index: ContentIndex, *, resolve_ref: RefResolver) -> Plan:
             if prototype.get(key) is _UNRESOLVED:
                 del prototype[key]
                 unresolved.append(key)
+        if len(matches) > 1:
+            plan.duplicates[entity.id] = len(matches)
         diff = declared_diff(prototype, existing)
         for key in unresolved:
             diff[key] = "UPDATE"

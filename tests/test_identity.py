@@ -9,6 +9,7 @@ from evennia_mudification.identity import (
     ENTITY_TAG_CATEGORY,
     SOURCE_TAG_CATEGORY,
     find_entity_object,
+    find_entity_objects,
     managed_ids,
 )
 
@@ -33,3 +34,19 @@ class TestIdentity(BaseEvenniaTestCase):
         self._make("square")
         self._make("inn")
         assert managed_ids() == {"square", "inn"}
+
+    def test_entity_tag_alone_is_not_managed(self) -> None:
+        create.create_object(
+            "evennia.objects.objects.DefaultObject",
+            key="impostor",
+            tags=[("ghost", ENTITY_TAG_CATEGORY)],
+        )
+        assert find_entity_object("ghost") is None
+        assert "ghost" not in managed_ids()
+
+    def test_duplicate_managed_objects_are_all_returned(self) -> None:
+        first = self._make("square")
+        second = self._make("square")
+        matches = find_entity_objects("square")
+        assert {obj.pk for obj in matches} == {first.pk, second.pk}
+        assert find_entity_object("square") is not None

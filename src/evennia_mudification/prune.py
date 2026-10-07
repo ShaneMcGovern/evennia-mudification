@@ -9,7 +9,7 @@ from django.conf import settings
 
 from evennia_mudification.apply import EntityResult
 from evennia_mudification.findings import Finding
-from evennia_mudification.identity import ENTITY_TAG_CATEGORY, find_entity_object
+from evennia_mudification.identity import ENTITY_TAG_CATEGORY, find_entity_objects
 
 
 def resolve_fallback() -> Any:
@@ -91,18 +91,17 @@ def plan_prune(retired_ids: set[str], *, fallback: Any) -> PrunePlan:
     plan = PrunePlan(retirements=sorted(retired_ids))
     orphaned: list[Any] = []
     for entity_id in plan.retirements:
-        obj = find_entity_object(entity_id)
-        if obj is None:
-            continue
-        is_room = isinstance(obj, DefaultRoom)
-        for occupant in list(obj.contents):
-            if _is_retired(occupant, retired_ids):
-                continue
-            home = getattr(occupant, "home", None)
-            if is_room and home is not None and not _is_retired(home, retired_ids):
-                plan.evacuations.append(Evacuation(occupant, home, "home"))
-            else:
-                orphaned.append(occupant)
+        # Every live copy is handled, so a duplicated id retires in one run.
+        for obj in find_entity_objects(entity_id):
+            is_room = isinstance(obj, DefaultRoom)
+            for occupant in list(obj.contents):
+                if _is_retired(occupant, retired_ids):
+                    continue
+                home = getattr(occupant, "home", None)
+                if is_room and home is not None and not _is_retired(home, retired_ids):
+                    plan.evacuations.append(Evacuation(occupant, home, "home"))
+                else:
+                    orphaned.append(occupant)
     if orphaned:
         usable_fallback = (
             fallback is not None
@@ -169,23 +168,21 @@ def execute_prune(prune_plan: PrunePlan) -> PruneReport:
         # relocation move the occupant by its own rules.
         return report
     for entity_id in prune_plan.retirements:
-        obj = find_entity_object(entity_id)
-        if obj is None:
-            continue
-        try:
-            deleted = obj.delete()
-        except Exception as err:  # per-entity isolation is deliberate
-            report.results.append(
-                EntityResult(entity_id, "destroy", ok=False, error=str(err))
-            )
-            continue
-        if deleted is False:
-            report.results.append(
-                EntityResult(
-                    entity_id, "destroy", ok=False, error="deletion was vetoed"
+        for obj in find_entity_objects(entity_id):
+            try:
+                deleted = obj.delete()
+            except Exception as err:  # per-entity isolation is deliberate
+                report.results.append(
+                    EntityResult(entity_id, "destroy", ok=False, error=str(err))
                 )
-            )
-        else:
-            report.destroyed += 1
-            report.results.append(EntityResult(entity_id, "destroy", ok=True))
+                continue
+            if deleted is False:
+                report.results.append(
+                    EntityResult(
+                        entity_id, "destroy", ok=False, error="deletion was vetoed"
+                    )
+                )
+            else:
+                report.destroyed += 1
+                report.results.append(EntityResult(entity_id, "destroy", ok=True))
     return report
