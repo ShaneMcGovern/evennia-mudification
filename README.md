@@ -197,6 +197,7 @@ The CLI covers validation in CI, or in a pre-commit hook you add yourself:
 
 - `mudification validate [path] [--json]`: validate a content root. Prints one line per finding and a summary line; exit code 0 when clean, 1 when there are errors. `--json` emits the findings as JSON.
 - `mudification schema [--write PATH]`: print the JSON Schema for bundles, or write it to PATH for editors, defaulting to `schema/mudification.schema.json`.
+- `mudification --version`: print the installed version.
 
 ## Known limitations
 
