@@ -14,7 +14,11 @@ from evennia_mudification import runtime
 from evennia_mudification.apply import apply_plan
 from evennia_mudification.compile import ContentIndex
 from evennia_mudification.deferred import run_deferred
-from evennia_mudification.identity import find_entity_object, managed_ids
+from evennia_mudification.identity import (
+    ManagedWorld,
+    find_entity_object,
+    load_managed_world,
+)
 from evennia_mudification.loading import load_content
 from evennia_mudification.models import ref_target
 from evennia_mudification.plan import build_plan
@@ -40,6 +44,9 @@ class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typ
     aliases: ClassVar[list[str]] = ["evennia_mudification"]
     locks = "cmd:perm(Developer)"
     help_category = "Building"
+
+    # One load per command invocation; commands are instantiated per run.
+    _world_cache: ManagedWorld | None = None
 
     def func(self) -> None:
         args = self.args.strip().split()
@@ -98,7 +105,14 @@ class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typ
             errors=[finding for finding in findings if finding.severity == "error"],
         )
 
+    def _world(self) -> ManagedWorld:
+        if self._world_cache is None:
+            self._world_cache = load_managed_world()
+        return self._world_cache
+
     def _resolve_ref(self, ref: str) -> Any:
+        # Live lookup, not the cached world: an apply creates objects the map
+        # loaded before the run cannot know about.
         obj = find_entity_object(ref_target(ref))
         if obj is None:
             raise LookupError(f"reference '{ref}' has not been applied yet")
@@ -108,7 +122,8 @@ class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typ
         index = self._load()
         if index is None:
             return
-        plan = build_plan(index, resolve_ref=self._resolve_ref)
+        world = self._world()
+        plan = build_plan(index, resolve_ref=self._resolve_ref, world=world)
         if plan.is_empty():
             self.msg("no changes")
             return
@@ -129,6 +144,7 @@ class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typ
                 index=index,
                 resolve_ref=self._resolve_ref,
                 caller=self.caller,
+                world=self._world(),
             ),
             on_return=self._report_applied,
             on_error=self._report_failed("apply"),
@@ -188,7 +204,10 @@ class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typ
         if index is None:
             return
         fallback = resolve_fallback()
-        prune_plan = plan_prune(managed_ids() - set(index.entities), fallback=fallback)
+        world = self._world()
+        prune_plan = plan_prune(
+            world.ids - set(index.entities), fallback=fallback, world=world
+        )
         if prune_plan.errors:
             self.msg(prune_plan.render())
             return
@@ -216,7 +235,7 @@ class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typ
                 f"last validation: {summary.entity_count} entities from "
                 f"{summary.content_path} ({len(summary.errors)} errors)"
             )
-        self.msg(f"managed entities in the database: {len(managed_ids())}")
+        self.msg(f"managed entities in the database: {len(self._world().ids)}")
         if runtime.LAST_APPLIED is not None:
             self.msg(f"last applied: {runtime.LAST_APPLIED} entities")
         content_path = getattr(settings, "MUDIFICATION_CONTENT_PATH", None)
@@ -229,5 +248,5 @@ class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typ
                 for finding in errors:
                     self.msg(finding.render())
             else:
-                self.msg(f"retirements: {len(managed_ids() - set(index.entities))}")
+                self.msg(f"retirements: {len(self._world().ids - set(index.entities))}")
                 self.msg(f"source bundles: {len(index.sources)}")

@@ -9,7 +9,12 @@ from django.conf import settings
 
 from evennia_mudification.apply import EntityResult
 from evennia_mudification.findings import Finding
-from evennia_mudification.identity import ENTITY_TAG_CATEGORY, find_entity_objects
+from evennia_mudification.identity import (
+    ENTITY_TAG_CATEGORY,
+    ManagedWorld,
+    find_entity_objects,
+    load_managed_world,
+)
 
 
 def resolve_fallback() -> Any:
@@ -77,7 +82,9 @@ def _is_retired(obj: Any, retired: set[str]) -> bool:
     return bool(managed & retired)
 
 
-def plan_prune(retired_ids: set[str], *, fallback: Any) -> PrunePlan:
+def plan_prune(
+    retired_ids: set[str], *, fallback: Any, world: ManagedWorld | None = None
+) -> PrunePlan:
     """Build the retirement/evacuation plan; refuses when recovery is impossible.
 
     Occupants that are themselves retired are skipped. Exits are skipped too:
@@ -89,11 +96,13 @@ def plan_prune(retired_ids: set[str], *, fallback: Any) -> PrunePlan:
     """
     from evennia.objects.objects import DefaultExit, DefaultRoom
 
+    if world is None:
+        world = load_managed_world()
     plan = PrunePlan(retirements=sorted(retired_ids))
     orphaned: list[Any] = []
     for entity_id in plan.retirements:
         # Every live copy is handled, so a duplicated id retires in one run.
-        for obj in find_entity_objects(entity_id):
+        for obj in world.all(entity_id):
             is_room = isinstance(obj, DefaultRoom)
             for occupant in list(obj.contents):
                 if _is_retired(occupant, retired_ids):

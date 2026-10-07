@@ -17,6 +17,7 @@ from evennia_mudification.compile import compile_documents
 from evennia_mudification.identity import (
     ENTITY_TAG_CATEGORY,
     SOURCE_TAG_CATEGORY,
+    ManagedWorld,
     find_entity_object,
 )
 from evennia_mudification.models import ref_target
@@ -223,8 +224,8 @@ class TestPrune(BaseEvenniaTestCase):
         fallback = create.create_object(
             "evennia.objects.objects.DefaultRoom", key="fallback"
         )
-        with mock.patch.object(prune, "find_entity_objects", return_value=[room]):
-            prune_plan = plan_prune({"square"}, fallback=fallback)
+        world = ManagedWorld(objects={"square": [room]})
+        prune_plan = plan_prune({"square"}, fallback=fallback, world=world)
         assert [evacuation.reason for evacuation in prune_plan.evacuations] == [
             "fallback"
         ]

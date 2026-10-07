@@ -8,7 +8,8 @@ from typing import Any
 from evennia.prototypes import spawner
 
 from evennia_mudification.compile import ContentIndex
-from evennia_mudification.identity import find_entity_object
+from evennia_mudification.identity import ManagedWorld, load_managed_world
+from evennia_mudification.models import ExitEntity, ObjectEntity, ref_target
 from evennia_mudification.plan import Plan, PlannedChange, declared_diff
 from evennia_mudification.proto import (
     RefResolver,
@@ -17,6 +18,45 @@ from evennia_mudification.proto import (
 )
 
 _KIND_ORDER = {"room": 0, "exit": 1, "object": 2}
+
+
+def _create_refs(entity: Any) -> list[str]:
+    """The declared ids this entity's placement references."""
+    if isinstance(entity, ExitEntity):
+        refs = [entity.location, entity.destination]
+    elif isinstance(entity, ObjectEntity):
+        refs = [ref for ref in (entity.location, entity.home) if ref]
+    else:
+        return []
+    return [ref_target(ref) for ref in refs]
+
+
+def _create_order(
+    changes: list[PlannedChange], index: ContentIndex
+) -> list[PlannedChange]:
+    """Order creates so a dependency is created before its dependent.
+
+    Declaration order is arbitrary, and the retry loop's cost is quadratic in
+    the depth of a location chain. A stable topological order makes one pass
+    enough for a dependency graph; a cycle keeps the old order and the retry
+    loop reports it exactly as before.
+    """
+    pending = {change.entity_id: change for change in changes}
+    ordered: list[PlannedChange] = []
+    while pending:
+        ready = [
+            entity_id
+            for entity_id in pending
+            if not any(
+                ref in pending for ref in _create_refs(index.entities[entity_id])
+            )
+        ]
+        if not ready:
+            ordered.extend(pending.values())
+            break
+        for entity_id in ready:
+            ordered.append(pending.pop(entity_id))
+    return ordered
 
 
 @dataclass
@@ -55,6 +95,7 @@ def apply_plan(
     index: ContentIndex,
     resolve_ref: RefResolver,
     caller: Any = None,
+    world: ManagedWorld | None = None,
 ) -> ApplyReport:
     """Create and update entities, isolating per-entity failures.
 
@@ -62,10 +103,15 @@ def apply_plan(
     regardless of declaration order; whatever is still unresolved when a pass
     makes no progress is reported with its ``LookupError``. Updates run after.
     """
+    if world is None:
+        world = load_managed_world()
     report = ApplyReport()
-    pending: list[PlannedChange] = sorted(
-        (change for change in plan.changes if change.action == "create"),
-        key=lambda change: _KIND_ORDER[index.entities[change.entity_id].kind],
+    pending = _create_order(
+        sorted(
+            (change for change in plan.changes if change.action == "create"),
+            key=lambda change: _KIND_ORDER[index.entities[change.entity_id].kind],
+        ),
+        index,
     )
     while pending:
         deferred: list[tuple[PlannedChange, LookupError]] = []
@@ -112,7 +158,7 @@ def apply_plan(
             prototype = effective_prototype(
                 entity_to_prototype(entity, index=index, resolve_ref=resolve_ref)
             )
-            obj = find_entity_object(change.entity_id)
+            obj = world.get(change.entity_id)
             if obj is None:
                 report.results.append(
                     EntityResult(

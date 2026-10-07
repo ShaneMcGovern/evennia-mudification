@@ -317,3 +317,39 @@ class TestTemplateUpdates(BaseEvenniaTestCase):
                 resolve_ref=self._resolver,
             ).ok
         assert guard.attributes.get("hp") == 9
+
+
+class TestCreateOrder(BaseEvenniaTestCase):
+    def _index(self, root: Path) -> ContentIndex:
+        return compile_documents(LocalDirectorySource(root).documents())
+
+    def test_deep_chain_creates_without_retrying(self) -> None:
+        calls: list[str] = []
+
+        def resolve(ref: str) -> Any:
+            calls.append(ref)
+            obj = find_entity_object(ref_target(ref))
+            if obj is None:
+                raise LookupError(f"reference '{ref}' has not been applied yet")
+            return obj
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            lines = ["schema_version: 1", "entities:"]
+            for item in range(20):
+                # Declared deepest first, the order that defeats retries:
+                # item19 needs item18, which is declared later.
+                target = 19 - item
+                lines.append(f"  - id: item{target}")
+                lines.append("    kind: object")
+                lines.append(f"    key: item {target}")
+                if target:
+                    lines.append(f'    location: "@item{target - 1}"')
+            (root / "c.yaml").write_text("\n".join(lines) + "\n", encoding="utf-8")
+            index = self._index(root)
+            plan = build_plan(index, resolve_ref=resolve)
+            calls.clear()
+            report = apply_plan(plan, index=index, resolve_ref=resolve)
+        assert report.ok
+        # One resolution per reference, not a retry pass per dependency level.
+        assert len(calls) <= 60
