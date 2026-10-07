@@ -655,6 +655,11 @@ dependencies = [
     { name = "pyyaml" },
 ]
 
+[package.optional-dependencies]
+evennia = [
+    { name = "evennia" },
+]
+
 [package.dev-dependencies]
 dev = [
     { name = "evennia" },
@@ -670,9 +675,11 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "evennia", marker = "extra == 'evennia'", specifier = ">=6.1.0" },
     { name = "pydantic", specifier = ">=2" },
     { name = "pyyaml", specifier = ">=6" },
 ]
+provides-extras = ["evennia"]
 
 [package.metadata.requires-dev]
 dev = [
