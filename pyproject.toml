@@ -1,6 +1,6 @@
 [project]
 name = "evennia-mudification"
-version = "0.3.0"
+version = "0.3.1"
 description = "A YAML-defined world content engine for Evennia: define rooms, exits and objects as data, then validate, plan, apply and prune them."
 readme = "README.md"
 license = "MIT"

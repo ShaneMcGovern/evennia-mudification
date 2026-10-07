@@ -7,6 +7,200 @@ below the marker on each release.
 
 <!-- version list -->
 
+## v0.3.1 (2026-10-07)
+
+### Bug Fixes
+
+- Anchor and de-duplicate findings precisely
+  ([`cfccabc`](https://github.com/ShaneMcGovern/evennia-mudification/commit/cfccabc1efb1d26a3499850c670f2cccadda7427))
+
+- Cap count expansion and make pathological nesting fail as findings
+  ([`4fc0281`](https://github.com/ShaneMcGovern/evennia-mudification/commit/4fc02818b76b682625045b21a08e39654387a406))
+
+- Fast-forward the release checkout past a concurrent badge push
+  ([`25af9ec`](https://github.com/ShaneMcGovern/evennia-mudification/commit/25af9eccb8003ccd6be2f7ed8021cb458873e8b0))
+
+- Hint only when there is something to confirm
+  ([`8921a6e`](https://github.com/ShaneMcGovern/evennia-mudification/commit/8921a6eba720147deef7da681a2eab94a396c3f5))
+
+- Kind check object location and home references
+  ([`decf474`](https://github.com/ShaneMcGovern/evennia-mudification/commit/decf4740f0d7ed2a90a31022c9ec8d0c3f837f07))
+
+- Load the managed world once and order creates by dependency
+  ([`c097296`](https://github.com/ShaneMcGovern/evennia-mudification/commit/c097296f01886218c873573bdb5c27a888676974))
+
+- Narrow the published schema to the compiler's contract
+  ([`a8e9d11`](https://github.com/ShaneMcGovern/evennia-mudification/commit/a8e9d11a3defc2bc02c8fc571598034d5f67e143))
+
+- Plan around declared but unapplied refs and reject placement cycles
+  ([`fe877bc`](https://github.com/ShaneMcGovern/evennia-mudification/commit/fe877bc5301835747b6d1160be41f03c3f18eeea))
+
+- Refresh validation state and report what apply actually did
+  ([`e2c0baf`](https://github.com/ShaneMcGovern/evennia-mudification/commit/e2c0bafb527552a7caee72f3b87e5b972d2d30ef))
+
+- Refuse colliding prototype keys and register templates only on confirmed runs
+  ([`a7f74f0`](https://github.com/ShaneMcGovern/evennia-mudification/commit/a7f74f05e15c301dcc043a6bdac36b691e342292))
+
+- Refuse empty content roots and blank bundle files
+  ([`33a064c`](https://github.com/ShaneMcGovern/evennia-mudification/commit/33a064c274d1d383858a3a0e44562493e02dfbed))
+
+- Report failed prototype updates as failures and handle vanished targets
+  ([`744bf5b`](https://github.com/ShaneMcGovern/evennia-mudification/commit/744bf5b499553861d7714105d5a2b7885c71851f))
+
+- Require both identity tags and retire duplicate objects in one run
+  ([`93dd6b6`](https://github.com/ShaneMcGovern/evennia-mudification/commit/93dd6b67c2a1485585998b04e8ee92fb4208c7da))
+
+- Resolve template inheritance in plans and retire ids re-declared as templates
+  ([`6b42741`](https://github.com/ShaneMcGovern/evennia-mudification/commit/6b42741aa5b346245d35d02fbca59bb1381bb93c))
+
+- Retire exits with their room and evacuate through move semantics
+  ([`12d2256`](https://github.com/ShaneMcGovern/evennia-mudification/commit/12d2256bc740ed523c3284085e0fab6ec0edac31))
+
+- Scan protfunc names and resolve typeclasses the way Evennia does
+  ([`e413cc7`](https://github.com/ShaneMcGovern/evennia-mudification/commit/e413cc7e7cb095e7859c9742f081feb24aa5b96b))
+
+- Serialize apply and prune runs and keep sqlite work on the reactor thread
+  ([`5430d44`](https://github.com/ShaneMcGovern/evennia-mudification/commit/5430d4478781e7293ab8fe95910285fb700146cd))
+
+- Small CLI repairs for the path default, the version flag and the schema path
+  ([`178231e`](https://github.com/ShaneMcGovern/evennia-mudification/commit/178231e010f65e566ecd0b8497e905bd938b0d7e))
+
+- State when the CLI skips the Evennia-dependent checks
+  ([`b2bbb29`](https://github.com/ShaneMcGovern/evennia-mudification/commit/b2bbb299b5c8b67b384ad2f0b633558f480f9f2f))
+
+### Chores
+
+- Declare and check the Evennia floor
+  ([`0771705`](https://github.com/ShaneMcGovern/evennia-mudification/commit/0771705e83ada1fd51e98d5e303527bddd6a2584))
+
+- Run the commit-msg hooks and the title check in CI
+  ([`86af8bf`](https://github.com/ShaneMcGovern/evennia-mudification/commit/86af8bf04e6d08795a55df8322664803b3e1a29d))
+
+- Update coverage badge [skip ci]
+  ([`39bc725`](https://github.com/ShaneMcGovern/evennia-mudification/commit/39bc725ebd1a7681e09ca04f4f89ba41f9f1f7a1))
+
+- Update coverage badge [skip ci]
+  ([`dc4aa49`](https://github.com/ShaneMcGovern/evennia-mudification/commit/dc4aa499b804bdf4e419c88f36cd36b6744b0261))
+
+- Update coverage badge [skip ci]
+  ([`d27c89b`](https://github.com/ShaneMcGovern/evennia-mudification/commit/d27c89b4d287623ed934be3e5db04101c0f7e204))
+
+- Update coverage badge [skip ci]
+  ([`2494c31`](https://github.com/ShaneMcGovern/evennia-mudification/commit/2494c31b85c8a8652517a3fda82e137edd98d1ac))
+
+- Update coverage badge [skip ci]
+  ([`0fc839b`](https://github.com/ShaneMcGovern/evennia-mudification/commit/0fc839bf42d45659ecac363d8abbf06efd83e682))
+
+- Update coverage badge [skip ci]
+  ([`c16444f`](https://github.com/ShaneMcGovern/evennia-mudification/commit/c16444fb64f7627187f9481fe9113c101caf6605))
+
+- Update coverage badge [skip ci]
+  ([`155244c`](https://github.com/ShaneMcGovern/evennia-mudification/commit/155244c543afb57df2a76df0f09a170a3660d450))
+
+- Update coverage badge [skip ci]
+  ([`b8fd71d`](https://github.com/ShaneMcGovern/evennia-mudification/commit/b8fd71def1ffe3f5095e89af76535edec29e2217))
+
+- Update coverage badge [skip ci]
+  ([`07722ee`](https://github.com/ShaneMcGovern/evennia-mudification/commit/07722ee99c71388f85ccaa73706fac6778aeb6dd))
+
+- Update coverage badge [skip ci]
+  ([`65a5fd1`](https://github.com/ShaneMcGovern/evennia-mudification/commit/65a5fd1f1435c26efda48e26172e0a15f33f8438))
+
+- Update coverage badge [skip ci]
+  ([`e79fd30`](https://github.com/ShaneMcGovern/evennia-mudification/commit/e79fd307e93cfeeb77d5edbfc86c1102a0b844be))
+
+- Update coverage badge [skip ci]
+  ([`eb0921a`](https://github.com/ShaneMcGovern/evennia-mudification/commit/eb0921a27c44bf667fc1448aaf3122db7fe14b74))
+
+- Update coverage badge [skip ci]
+  ([`df7acf0`](https://github.com/ShaneMcGovern/evennia-mudification/commit/df7acf058b0a4fc8f935931c52fc6aa4216df62c))
+
+- Update coverage badge [skip ci]
+  ([`c06d776`](https://github.com/ShaneMcGovern/evennia-mudification/commit/c06d77679bc1fc657bc2e0c0b2505849467faec1))
+
+- Update coverage badge [skip ci]
+  ([`76fd934`](https://github.com/ShaneMcGovern/evennia-mudification/commit/76fd93469dd0e223b793d00e8ed5c7b8b3d6dcc0))
+
+- Update coverage badge [skip ci]
+  ([`7cf7968`](https://github.com/ShaneMcGovern/evennia-mudification/commit/7cf79689fa3c31ecbf89a66ba6b611b369485862))
+
+- **deps**: Bump python in /.devcontainer
+  ([`fcf0e97`](https://github.com/ShaneMcGovern/evennia-mudification/commit/fcf0e9781a626fa96b82ed3fc6645b6c85a87184))
+
+### Documentation
+
+- Repair claims and style that drifted from reality
+  ([`4be6af3`](https://github.com/ShaneMcGovern/evennia-mudification/commit/4be6af3a86673db87e8eea1425883aae2a5b2830))
+
+### Testing
+
+- Check the shipped examples against the engine
+  ([`e33ff63`](https://github.com/ShaneMcGovern/evennia-mudification/commit/e33ff63d065b317f45535faa7527483c41fde839))
+
+- Cover empty roots, yml bundles and blank files
+  ([`e80e645`](https://github.com/ShaneMcGovern/evennia-mudification/commit/e80e6451f76f9f0ba4138c610cd6f3f101f8c95d))
+
+- Cover home refs, nested protfuncs and the failure paths
+  ([`c7c630e`](https://github.com/ShaneMcGovern/evennia-mudification/commit/c7c630e468c91fe0ab386b1e96a0f51f592a73b8))
+
+- Pin apply verification of updates and vanished targets
+  ([`ee36567`](https://github.com/ShaneMcGovern/evennia-mudification/commit/ee36567a04c05281b0f9c9bf00b0621a708b1427))
+
+- Pin finding anchors and de-duplication
+  ([`06f73d8`](https://github.com/ShaneMcGovern/evennia-mudification/commit/06f73d89c54f8b551dfe48bc12e76c6ad7fc2bef))
+
+- Pin planning around unapplied refs and placement cycles
+  ([`119fffa`](https://github.com/ShaneMcGovern/evennia-mudification/commit/119fffa0f2597e8d09ee3629e772475c01b4feb7))
+
+- Pin protfunc scanning and typeclass resolution
+  ([`2fe8a6d`](https://github.com/ShaneMcGovern/evennia-mudification/commit/2fe8a6ddb5b5551d83b7674b763b392c051d9ac9))
+
+- Pin prune evacuation and destruction semantics
+  ([`c65a98f`](https://github.com/ShaneMcGovern/evennia-mudification/commit/c65a98fa18925cb82063fca0f9dfb781e48f7fdc))
+
+- Pin status accuracy and the applied count
+  ([`df5d44b`](https://github.com/ShaneMcGovern/evennia-mudification/commit/df5d44bdca06989744b92a6c5664062be1193837))
+
+- Pin template inheritance in plans and apply
+  ([`52a9905`](https://github.com/ShaneMcGovern/evennia-mudification/commit/52a9905b036454da41ec14ee4133d6057e16fee2))
+
+- Pin the confirmation hints on empty and refused plans
+  ([`41a6725`](https://github.com/ShaneMcGovern/evennia-mudification/commit/41a6725a2e67a4288871d52a194a3e1783e5fde6))
+
+- Pin the content path fallback, version flag and schema default
+  ([`764452d`](https://github.com/ShaneMcGovern/evennia-mudification/commit/764452d23e2162cf6fe60414617783605bd576e7))
+
+- Pin the count cap, deep nesting and discarded subtrees
+  ([`9c1b502`](https://github.com/ShaneMcGovern/evennia-mudification/commit/9c1b502d966e344de49e1f655d0295c0f2be89fd))
+
+- Pin the Evennia floor check and the declared extra
+  ([`be5e745`](https://github.com/ShaneMcGovern/evennia-mudification/commit/be5e745c2afd0fd788fe479b53b1fc2211e01ed2))
+
+- Pin the location and home reference kinds
+  ([`d19af38`](https://github.com/ShaneMcGovern/evennia-mudification/commit/d19af385c6dcc4631f83a14e6bbbc175f06f2e49))
+
+- Pin the prototype namespace rules
+  ([`9ac24e7`](https://github.com/ShaneMcGovern/evennia-mudification/commit/9ac24e7c9d72a518a8f2a79d56d41f3a53c7095a))
+
+- Pin the run slot and the sqlite deferral gate
+  ([`0a17eb3`](https://github.com/ShaneMcGovern/evennia-mudification/commit/0a17eb327314e43eb6bee159a0d1ddfcc9753231))
+
+- Pin the schema contract for contents, keys and version
+  ([`4f9a515`](https://github.com/ShaneMcGovern/evennia-mudification/commit/4f9a515e5ae4c45c5534f40e88437da46ccbad48))
+
+- Pin the shipped documents against version hardcodes
+  ([`473bb0c`](https://github.com/ShaneMcGovern/evennia-mudification/commit/473bb0c72c0b56c19f7c893a654fdb517091ef88))
+
+- Pin the single world load and dependency ordering
+  ([`58145f9`](https://github.com/ShaneMcGovern/evennia-mudification/commit/58145f9a91eab8dc42b562b3781a8f0df99e34c0))
+
+- Pin the skipped-checks notice in both output modes
+  ([`42bd27f`](https://github.com/ShaneMcGovern/evennia-mudification/commit/42bd27f21eda3ace55b9f1a25a00474b471ed758))
+
+- Pin the two-tag identity rule and duplicate handling
+  ([`ba4d26e`](https://github.com/ShaneMcGovern/evennia-mudification/commit/ba4d26e166a6011323a7769e82f295b77c4743c4))
+
+
 ## v0.3.0 (2026-10-05)
 
 ### Documentation

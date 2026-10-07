@@ -648,7 +648,7 @@ wheels = [
 
 [[package]]
 name = "evennia-mudification"
-version = "0.3.0"
+version = "0.3.1"
 source = { editable = "." }
 dependencies = [
     { name = "pydantic" },
