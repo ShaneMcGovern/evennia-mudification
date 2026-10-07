@@ -97,6 +97,16 @@ class TestPrune(BaseEvenniaTestCase):
         assert "fallback-missing" in prune_plan.render()
         assert prune_plan.evacuations == []
 
+    def test_fallback_finding_is_anchored_at_the_content_root(self) -> None:
+        self._spawn_world()
+        with override_settings(
+            MUDIFICATION_FALLBACK_ROOM=None,
+            DEFAULT_HOME=None,
+            MUDIFICATION_CONTENT_PATH="/content/root",
+        ):
+            prune_plan = plan_prune({"square"}, fallback=None)
+        assert [finding.source for finding in prune_plan.errors] == ["/content/root"]
+
     def test_fallback_that_is_retired_refuses(self) -> None:
         self._spawn_world()
         hall = find_entity_object("square")

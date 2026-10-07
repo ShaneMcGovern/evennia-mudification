@@ -56,3 +56,11 @@ def test_yml_files_are_bundles(tmp_path: Path) -> None:
     index, findings = load_content(tmp_path)
     assert set(index.entities) == {"a"}
     assert findings == []
+
+
+def test_read_failure_is_anchored_at_the_file(tmp_path: Path) -> None:
+    (tmp_path / "broken.yaml").write_bytes(b"\xff\xfe\x00")
+    _, findings = load_content(tmp_path)
+    assert [finding.code for finding in findings] == ["load-error"]
+    assert findings[0].source == str(tmp_path / "broken.yaml")
+    assert findings[0].source in findings[0].message

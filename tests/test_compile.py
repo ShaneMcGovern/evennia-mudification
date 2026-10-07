@@ -232,3 +232,18 @@ def test_nested_count_with_contents_is_error(tmp_path: Path) -> None:
     for entity in index.entities.values():
         if isinstance(entity, ObjectEntity) and entity.location is not None:
             assert entity.location.removeprefix("@") in index.entities
+
+
+def test_schema_error_omits_the_union_tag(tmp_path: Path) -> None:
+    (tmp_path / "bad.yaml").write_text(
+        "schema_version: 1\nentities:\n  - id: room\n"
+        "    kind: room\n    key: x\n    licks: y\n"
+    )
+    index = compile_documents(LocalDirectorySource(tmp_path).documents())
+    assert index.findings[0].message.startswith("entities.0.licks:")
+
+
+def test_bundle_level_error_has_no_empty_anchor(tmp_path: Path) -> None:
+    (tmp_path / "bad.yaml").write_text("schema_version: 2\nentities: []\n")
+    index = compile_documents(LocalDirectorySource(tmp_path).documents())
+    assert not index.findings[0].message.startswith(":")
