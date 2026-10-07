@@ -32,6 +32,14 @@ jobs:
           # PSR walks the full history and tag list.
           fetch-depth: 0
 
+      # The badge job shares the main-writes concurrency group and may push its
+      # commit first; the checkout is pinned to the commit that triggered the
+      # run, and PSR refuses to release when origin/main has moved past it.
+      - name: Fast-forward to the branch tip
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
       - name: Set up uv
         uses: astral-sh/setup-uv@v10.0.1
         with:
