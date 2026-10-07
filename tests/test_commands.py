@@ -378,6 +378,58 @@ class TestCmdMudification(BaseEvenniaTestCase):
             self._run(caller, "apply confirm")
             output = self._run(caller, "prune")
         assert "no retirements" in output
+        assert "run 'mudification prune confirm'" not in output
+
+    def test_apply_on_empty_plan_has_no_hint(self) -> None:
+        caller = self._caller()
+        with self._settings():
+            self._run(caller, "apply confirm")
+            output = self._run(caller, "apply")
+        assert "no changes" in output
+        assert "run 'mudification apply confirm'" not in output
+
+    def test_apply_with_only_retirements_points_at_prune(self) -> None:
+        caller = self._caller()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            content = root / "world.yaml"
+            content.write_text(
+                "schema_version: 1\nentities:\n"
+                "  - id: inn\n    kind: room\n    key: The Wayfarer's Inn\n"
+                "  - id: square\n    kind: room\n    key: The village square\n",
+                encoding="utf-8",
+            )
+            with self.settings(MUDIFICATION_CONTENT_PATH=str(root)):
+                self._run(caller, "apply confirm")
+                # Same file, so the source tag is unchanged and inn needs no
+                # update: the plan is retirements only.
+                content.write_text(
+                    "schema_version: 1\nentities:\n"
+                    "  - id: inn\n    kind: room\n    key: The Wayfarer's Inn\n",
+                    encoding="utf-8",
+                )
+                output = self._run(caller, "apply")
+                assert "retire square (reported only)" in output
+                assert "no creates or updates" in output
+                assert "run 'mudification apply confirm'" not in output
+                confirmed = self._run(caller, "apply confirm")
+        assert "no creates or updates" in confirmed
+        assert find_entity_object("square") is not None
+
+    def test_prune_refusal_has_no_hint(self) -> None:
+        from evennia_mudification.findings import Finding
+        from evennia_mudification.prune import PrunePlan
+
+        refusal = PrunePlan(
+            errors=[Finding("error", "fallback-missing", "no fallback", "prune")]
+        )
+        with (
+            self._settings(),
+            mock.patch.object(commands_module, "plan_prune", return_value=refusal),
+        ):
+            output = self._run(self._caller(), "prune")
+        assert "fallback-missing" in output
+        assert "run 'mudification prune confirm'" not in output
 
     def test_status_reports_retirements_and_sources(self) -> None:
         caller = self._caller()

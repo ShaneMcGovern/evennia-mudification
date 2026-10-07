@@ -112,6 +112,11 @@ class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typ
         if plan.is_empty():
             self.msg("no changes")
             return
+        if not plan.changes:
+            # Retirements are prune's to execute; there is nothing to confirm.
+            self.msg(plan.render())
+            self.msg("no creates or updates; run prune to retire.")
+            return
         if not confirm:
             self.msg(plan.render())
             self.msg("run 'mudification apply confirm' to apply these changes.")
@@ -189,7 +194,8 @@ class CmdMudification(Command):  # type: ignore[misc]  # Evennia ships no py.typ
             return
         if not confirm:
             self.msg(prune_plan.render())
-            self.msg("run 'mudification prune confirm' to execute these changes.")
+            if prune_plan.retirements:
+                self.msg("run 'mudification prune confirm' to execute these changes.")
             return
         # Confirmed runs keep the module-prototype namespace in step with the
         # content: declared templates register, removed ones deregister.

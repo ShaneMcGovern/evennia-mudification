@@ -185,9 +185,9 @@ In game, the package ships one command, `mudification`:
 | --- | --- |
 | `mudification validate` | reloads content from disk; `<n> entities valid.` or the errors and a note that nothing was applied |
 | `mudification plan` | the diff: `create <id>`, `update <id>: <fields>`, `retire <id> (reported only)`, or `no changes` |
-| `mudification apply` | the same plan and a confirmation hint; applies nothing |
+| `mudification apply` | the same plan; when it has creates or updates, a confirmation hint. Applies nothing |
 | `mudification apply confirm` | executes the plan and reports `action <id>: ok` or a failure per entity |
-| `mudification prune` | the `retire` and `evacuate` lines, or a refusal, and a confirmation hint |
+| `mudification prune` | the `retire` and `evacuate` lines; when it has retirements, a confirmation hint. A refusal instead, with no hint |
 | `mudification prune confirm` | executes the evacuations and destructions and reports the counts |
 | `mudification status` | the last validation summary, managed entities in the database, the last applied count, retirements and source bundles |
 
