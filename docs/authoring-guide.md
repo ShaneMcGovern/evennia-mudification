@@ -433,7 +433,6 @@ create rats#2
 create rats#3
 create hall-cellar:reverse
 > mudification apply confirm
-applying off-thread; results will follow.
 create hall: ok
 create cellar: ok
 create hall-cellar: ok
@@ -446,6 +445,8 @@ create rats#2: ok
 create rats#3: ok
 ```
 
+On the stock sqlite install, apply and prune run on the server's own thread, as above. On postgres they run off the reactor thread instead, so the immediate answer is `applying off-thread; results will follow.` and the report arrives when the run finishes. While one run is in flight, a second `apply confirm` or `prune confirm` is refused with `an apply or prune is already running; wait for it to finish.`; the slot frees when the run reports, pass or fail.
+
 Now edit `content/world.yaml` so the rats entry declares `count: 2`, and run again:
 
 ```text
@@ -455,7 +456,6 @@ retire rats#3 (reported only)
 retire rats#3
 run 'mudification prune confirm' to execute these changes.
 > mudification prune confirm
-pruning off-thread; results will follow.
 destroy rats#3: ok
 evacuated 0, destroyed 1
 ```

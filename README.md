@@ -139,7 +139,6 @@ create rats#2
 create rats#3
 create hall-cellar:reverse
 > mudification apply confirm
-applying off-thread; results will follow.
 create hall: ok
 create cellar: ok
 create hall-cellar: ok
@@ -151,9 +150,10 @@ create rats#1: ok
 create rats#2: ok
 create rats#3: ok
 > mudification prune confirm
-pruning off-thread; results will follow.
 evacuated 0, destroyed 0
 ```
+
+Apply and prune run on the server's own thread on the stock sqlite install, and off the reactor thread on postgres (the immediate answer is then `applying off-thread; results will follow.`). While one apply or prune is in flight, the next confirmation is refused with `already running`.
 
 Prune finds nothing here because the content still declares every entity. Drop one from the YAML and `mudification prune` lists it as a retirement before `prune confirm` executes it.
 

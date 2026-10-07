@@ -12,6 +12,7 @@ from evennia.prototypes import spawner
 from evennia.utils import create
 from evennia.utils.test_resources import BaseEvenniaTestCase
 
+from evennia_mudification import commands as commands_module
 from evennia_mudification import deferred, runtime
 from evennia_mudification.commands import CmdMudification
 from evennia_mudification.identity import find_entity_object
@@ -206,11 +207,101 @@ class TestCmdMudification(BaseEvenniaTestCase):
         with (
             self._settings(),
             mock.patch.object(deferred, "_reactor_running", return_value=True),
+            mock.patch.object(deferred, "_deferral_safe", return_value=True),
             mock.patch("evennia.utils.utils.run_async") as run_async_mock,
         ):
             output = self._run(caller, "apply confirm")
         assert "applying off-thread" in output
         assert run_async_mock.call_count == 1
+
+    def test_apply_refuses_while_a_run_is_in_flight(self) -> None:
+        caller = self._caller()
+        with self._settings():
+            runtime.RUN_IN_FLIGHT = True
+            self.addCleanup(setattr, runtime, "RUN_IN_FLIGHT", False)
+            output = self._run(caller, "apply confirm")
+        assert "already running" in output
+        assert find_entity_object("square") is None
+
+    def test_prune_refuses_while_a_run_is_in_flight(self) -> None:
+        caller = self._caller()
+        with self._settings():
+            self._run(caller, "apply confirm")
+        with tempfile.TemporaryDirectory() as directory:
+            Path(directory, "c.yaml").write_text(
+                "schema_version: 1\nentities:\n"
+                "  - id: inn\n    kind: room\n    key: The Wayfarer's Inn\n",
+                encoding="utf-8",
+            )
+            with self.settings(MUDIFICATION_CONTENT_PATH=directory):
+                runtime.RUN_IN_FLIGHT = True
+                self.addCleanup(setattr, runtime, "RUN_IN_FLIGHT", False)
+                output = self._run(caller, "prune confirm")
+        assert "already running" in output
+        assert find_entity_object("square") is not None
+
+    def test_apply_runs_inline_when_deferral_is_unsafe(self) -> None:
+        caller = self._caller()
+        with (
+            self._settings(),
+            mock.patch.object(deferred, "_reactor_running", return_value=True),
+            mock.patch("evennia.utils.utils.run_async") as run_async_mock,
+        ):
+            output = self._run(caller, "apply confirm")
+        assert run_async_mock.call_count == 0
+        assert "off-thread" not in output
+        assert "create square: ok" in output
+        assert runtime.RUN_IN_FLIGHT is False
+
+    def test_run_flag_is_held_until_a_deferred_run_finishes(self) -> None:
+        caller = self._caller()
+        captured: dict[str, Any] = {}
+
+        def fake_run_async(work: Any, **kwargs: Any) -> None:
+            captured["work"] = work
+            captured.update(kwargs)
+
+        with (
+            self._settings(),
+            mock.patch.object(deferred, "_reactor_running", return_value=True),
+            mock.patch.object(deferred, "_deferral_safe", return_value=True),
+            mock.patch("evennia.utils.utils.run_async", side_effect=fake_run_async),
+        ):
+            output = self._run(caller, "apply confirm")
+            assert "applying off-thread" in output
+            assert runtime.RUN_IN_FLIGHT is True
+            captured["at_return"](captured["work"]())
+        assert runtime.RUN_IN_FLIGHT is False
+
+    def test_run_flag_is_released_when_deferral_startup_fails(self) -> None:
+        caller = self._caller()
+        with (
+            self._settings(),
+            mock.patch.object(
+                commands_module, "run_deferred", side_effect=RuntimeError("no pool")
+            ),
+            self.assertRaises(RuntimeError),
+        ):
+            self._run(caller, "apply confirm")
+        assert runtime.RUN_IN_FLIGHT is False
+
+    def test_run_flag_is_released_when_a_deferred_run_fails(self) -> None:
+        caller = self._caller()
+        captured: dict[str, Any] = {}
+
+        def fake_run_async(work: Any, **kwargs: Any) -> None:
+            captured.update(kwargs)
+
+        with (
+            self._settings(),
+            mock.patch.object(deferred, "_reactor_running", return_value=True),
+            mock.patch.object(deferred, "_deferral_safe", return_value=True),
+            mock.patch("evennia.utils.utils.run_async", side_effect=fake_run_async),
+        ):
+            self._run(caller, "apply confirm")
+            assert runtime.RUN_IN_FLIGHT is True
+            captured["at_err"](RuntimeError("boom"))
+        assert runtime.RUN_IN_FLIGHT is False
 
     def test_prune_reports_then_confirms(self) -> None:
         caller = self._caller()
