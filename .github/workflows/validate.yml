@@ -52,8 +52,9 @@ jobs:
 
       # `--all-files` runs the default stage only. The commit-msg hooks need
       # one message at a time; pre-commit ignores --from-ref/--to-ref for that
-      # stage.
+      # stage. Push runs have no pull request, so the context would be empty.
       - name: Run the commit-msg hooks over the pull request commits
+        if: github.event_name == 'pull_request'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -70,8 +71,10 @@ jobs:
           exit "$status"
 
       # A squash merge turns the pull request title into the subject on main,
-      # and a non-conventional subject silently produces no release.
+      # and a non-conventional subject silently produces no release. Push runs
+      # have no pull request, so the context would be empty.
       - name: Check the pull request title
+        if: github.event_name == 'pull_request'
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
