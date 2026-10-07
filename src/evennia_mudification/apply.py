@@ -9,7 +9,7 @@ from evennia.prototypes import spawner
 
 from evennia_mudification.compile import ContentIndex
 from evennia_mudification.identity import find_entity_object
-from evennia_mudification.plan import Plan, PlannedChange
+from evennia_mudification.plan import Plan, PlannedChange, declared_diff
 from evennia_mudification.proto import (
     RefResolver,
     effective_prototype,
@@ -113,9 +113,33 @@ def apply_plan(
                 entity_to_prototype(entity, index=index, resolve_ref=resolve_ref)
             )
             obj = find_entity_object(change.entity_id)
+            if obj is None:
+                report.results.append(
+                    EntityResult(
+                        change.entity_id,
+                        change.action,
+                        ok=False,
+                        error="object vanished before apply; re-run plan",
+                    )
+                )
+                continue
             spawner.batch_update_objects_with_prototype(
                 prototype, objects=[obj], caller=caller
             )
+            # Evennia's batch update swallows per-key failures, so only the
+            # object can say whether the declared fields actually landed.
+            remaining = declared_diff(prototype, obj)
+            if remaining:
+                report.results.append(
+                    EntityResult(
+                        change.entity_id,
+                        change.action,
+                        ok=False,
+                        error="declared fields did not apply: "
+                        + ", ".join(sorted(remaining)),
+                    )
+                )
+                continue
             report.results.append(
                 EntityResult(change.entity_id, change.action, ok=True)
             )
