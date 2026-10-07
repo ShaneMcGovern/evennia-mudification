@@ -10,7 +10,11 @@ from evennia.prototypes.spawner import flatten_diff, prototype_diff_from_object
 from evennia_mudification.compile import ContentIndex
 from evennia_mudification.identity import find_entity_objects, managed_ids
 from evennia_mudification.models import PrototypeEntity
-from evennia_mudification.proto import RefResolver, entity_to_prototype
+from evennia_mudification.proto import (
+    RefResolver,
+    effective_prototype,
+    entity_to_prototype,
+)
 
 Action = Literal["create", "update"]
 
@@ -184,17 +188,24 @@ def build_plan(index: ContentIndex, *, resolve_ref: RefResolver) -> Plan:
             except LookupError:
                 return _UNRESOLVED
 
-        prototype = entity_to_prototype(entity, index=index, resolve_ref=_tolerant)
+        prototype = effective_prototype(
+            entity_to_prototype(entity, index=index, resolve_ref=_tolerant)
+        )
         for key in ("location", "home", "destination"):
             if prototype.get(key) is _UNRESOLVED:
                 del prototype[key]
                 unresolved.append(key)
-        if len(matches) > 1:
-            plan.duplicates[entity.id] = len(matches)
         diff = declared_diff(prototype, existing)
         for key in unresolved:
             diff[key] = "UPDATE"
         if diff:
             plan.changes.append(PlannedChange(entity.id, "update", diff))
-    plan.retirements = managed_ids() - set(index.entities)
+    # A live id the content now declares as a template is no longer a declared
+    # world object, so it retires like a dropped entity.
+    managed = {
+        entity.id
+        for entity in index.entities.values()
+        if not isinstance(entity, PrototypeEntity)
+    }
+    plan.retirements = managed_ids() - managed
     return plan

@@ -96,6 +96,20 @@ def entity_to_prototype(
     return prototype
 
 
+def effective_prototype(prototype: dict[str, Any]) -> dict[str, Any]:
+    """Resolve the template chain the way Evennia's spawner does.
+
+    Evennia cannot report which prototype a live object was spawned from, so
+    the inherited fields themselves are what a plan can compare and update.
+    """
+    if not prototype.get("prototype_parent"):
+        return prototype
+    from evennia.prototypes.spawner import flatten_prototype
+
+    flattened: dict[str, Any] = flatten_prototype(prototype, no_db=True)
+    return flattened
+
+
 def register_prototypes(index: ContentIndex) -> int:
     """Register prototype-kind entities as read-only module prototypes.
 

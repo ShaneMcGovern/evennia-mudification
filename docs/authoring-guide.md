@@ -252,9 +252,7 @@ In the game process, the server start check and a confirmed `apply` or `prune` r
 
 A template id is also its prototype key. A key the game already ships through `settings.PROTOTYPE_MODULES` is never overwritten: validation reports `prototype-key-taken` and nothing is applied, so rename the content id. A template removed from the content is deregistered by the next confirmed apply or prune, or by a server restart.
 
-One limitation to know:
-
-- Editing a template does not propagate to children that already exist. The change affects future spawns only, tracked in [issue 8](https://github.com/ShaneMcGovern/evennia-mudification/issues/8).
+A template's fields count as declared for its children. Editing a template updates existing children on the next apply, and repointing an object's `prototype:` reference applies the new template's fields, with the plan showing the affected fields like any other declared change. A field the object declares itself still wins over the template's.
 
 ## What apply owns
 
@@ -264,7 +262,9 @@ When two live objects claim one id (a crash mid-apply, or a manual copy), `plan`
 
 The declared fields are the content's to own: key, typeclass, aliases, attrs, tags, locks, permissions and the references. Everything else on a live object survives every apply. Builder edits, scripts attached in game, extra descriptions, extra aliases and extra locks are all left alone. An empty list or mapping declaration (aliases, attrs, tags, locks, permissions) is omitted rather than sent as empty, so it never clears live state. The exception is `desc`: an explicit `desc: ""` is sent, and clears the live description on update.
 
-Re-applying unchanged content changes nothing, so apply is safe to run again at any time. When content drops an entity, `plan` and `prune` report it as a retirement. Apply never deletes anything.
+Dropping a declaration never removes a live value. Delete `aliases: [a]` from the content and `a` stays on the object; the plan reports no change, because under additive-only semantics there is nothing for it to change. To clear a value, remove it in game, or use the empty spelling the field supports, such as `desc: ""`. Removal happens only through retirement: dropping an entity's id, or re-declaring it as a template, reports the live object as a retirement for prune to destroy. The declared fields are additive, and the content never silently deletes what it no longer mentions.
+
+Re-applying unchanged content changes nothing, so apply is safe to run again at any time. When content drops an entity, `plan` and `prune` report it as a retirement. An id that changes kind to `kind: prototype` retires its live object the same way, because it is no longer a declared world object. Apply never deletes anything.
 
 ## Pruning
 
