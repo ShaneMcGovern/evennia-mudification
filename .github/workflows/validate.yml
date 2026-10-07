@@ -4,6 +4,10 @@ name: Validate
 on:
   # Every branch, including main: the badge job below only runs there.
   push:
+  # A green pull request run is the quality gate a PR must clear before merge.
+  # The repository has no required status checks, so this job cannot block a
+  # merge by itself; release.yml refuses to release a commit whose PR has no
+  # green run.
   pull_request:
     branches:
       - main
@@ -19,6 +23,10 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7.0.1
+        with:
+          # The commit-msg checks below walk the pull request's commits, so
+          # the base commit and the branch history must be present.
+          fetch-depth: 0
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v10.0.1
@@ -41,6 +49,35 @@ jobs:
 
       - name: Run all pre-commit hooks
         run: uv run pre-commit run --all-files --show-diff-on-failure
+
+      # `--all-files` runs the default stage only. The commit-msg hooks need
+      # one message at a time; pre-commit ignores --from-ref/--to-ref for that
+      # stage.
+      - name: Run the commit-msg hooks over the pull request commits
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          status=0
+          while read -r sha; do
+            git log -1 --format='%B' "$sha" > /tmp/commit-msg.txt
+            if ! uv run pre-commit run --hook-stage commit-msg \
+              --commit-msg-filename /tmp/commit-msg.txt; then
+              echo "::error::the commit-msg hooks failed for commit $sha"
+              status=1
+            fi
+          done < <(git rev-list --no-merges "$BASE_SHA..$HEAD_SHA")
+          exit "$status"
+
+      # A squash merge turns the pull request title into the subject on main,
+      # and a non-conventional subject silently produces no release.
+      - name: Check the pull request title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          printf '%s\n' "$PR_TITLE" > /tmp/pr-title.txt
+          uv run pre-commit run conventional-pre-commit \
+            --hook-stage commit-msg --commit-msg-filename /tmp/pr-title.txt
 
   test:
     name: Run tests
