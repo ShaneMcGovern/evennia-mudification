@@ -80,13 +80,14 @@ def _is_retired(obj: Any, retired: set[str]) -> bool:
 def plan_prune(retired_ids: set[str], *, fallback: Any) -> PrunePlan:
     """Build the retirement/evacuation plan; refuses when recovery is impossible.
 
-    Occupants that are themselves retired are skipped. A retired room's
-    surviving occupants go to their home when it is live and not retiring,
-    otherwise to the fallback; a retired object's contents go to the fallback
-    regardless of home. With orphans and no usable fallback, the plan refuses
-    rather than strand them.
+    Occupants that are themselves retired are skipped. Exits are skipped too:
+    the delete that retires their room destroys them, so they cannot be
+    stranded. A retired room's surviving occupants go to their home when it is
+    live and not retiring, otherwise to the fallback; a retired object's
+    contents go to the fallback regardless of home. With orphans and no usable
+    fallback, the plan refuses rather than strand them.
     """
-    from evennia.objects.objects import DefaultRoom
+    from evennia.objects.objects import DefaultExit, DefaultRoom
 
     plan = PrunePlan(retirements=sorted(retired_ids))
     orphaned: list[Any] = []
@@ -96,6 +97,8 @@ def plan_prune(retired_ids: set[str], *, fallback: Any) -> PrunePlan:
             is_room = isinstance(obj, DefaultRoom)
             for occupant in list(obj.contents):
                 if _is_retired(occupant, retired_ids):
+                    continue
+                if isinstance(occupant, DefaultExit):
                     continue
                 home = getattr(occupant, "home", None)
                 if is_room and home is not None and not _is_retired(home, retired_ids):
@@ -147,22 +150,36 @@ class PruneReport:
 def execute_prune(prune_plan: PrunePlan) -> PruneReport:
     """Evacuate every occupant, then destroy the retired objects.
 
-    Destruction is skipped entirely if any evacuation failed, so a container is
-    never deleted with an occupant still stranded in it. Failures are isolated
-    per item; a vetoed delete is a failure row; an already-gone object is
-    silently skipped.
+    Evacuations move through Evennia's ``move_to``, so move hooks run and a
+    vetoed move is a failure. Destruction is skipped entirely if any evacuation
+    failed, so a container is never deleted with an occupant still stranded in
+    it. Failures are isolated per item; a vetoed delete is a failure row; an
+    already-gone object is silently skipped.
     """
     report = PruneReport()
     for evacuation in prune_plan.evacuations:
         try:
-            evacuation.occupant.location = evacuation.destination
-            report.evacuated += 1
+            moved = evacuation.occupant.move_to(
+                evacuation.destination, move_type="teleport"
+            )
         except Exception as err:  # per-occupant isolation is deliberate
             report.results.append(
                 EntityResult(
                     evacuation.occupant.key, "evacuate", ok=False, error=str(err)
                 )
             )
+            continue
+        if not moved:
+            report.results.append(
+                EntityResult(
+                    evacuation.occupant.key,
+                    "evacuate",
+                    ok=False,
+                    error="move was vetoed",
+                )
+            )
+            continue
+        report.evacuated += 1
     if not report.ok:
         # Destruction after a failed evacuation would let delete-time
         # relocation move the occupant by its own rules.
@@ -176,7 +193,7 @@ def execute_prune(prune_plan: PrunePlan) -> PruneReport:
                     EntityResult(entity_id, "destroy", ok=False, error=str(err))
                 )
                 continue
-            if deleted is False:
+            if deleted is not True:
                 report.results.append(
                     EntityResult(
                         entity_id, "destroy", ok=False, error="deletion was vetoed"

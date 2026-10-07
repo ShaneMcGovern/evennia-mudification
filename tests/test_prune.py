@@ -6,6 +6,8 @@ from typing import Any
 from unittest import mock
 
 from django.test import override_settings
+from evennia.objects.models import ObjectDB
+from evennia.objects.objects import DefaultCharacter
 from evennia.utils import create
 from evennia.utils.test_resources import BaseEvenniaTestCase
 
@@ -173,6 +175,48 @@ class TestPrune(BaseEvenniaTestCase):
         assert report.destroyed == 2
         assert find_entity_object("ghost") is None
 
+    def test_exits_are_not_evacuated_and_die_with_the_room(self) -> None:
+        self._spawn_world()
+        hall = find_entity_object("square")
+        inn = find_entity_object("inn")
+        door = create.create_object(
+            "evennia.objects.objects.DefaultExit",
+            key="side door",
+            location=hall,
+            destination=inn,
+        )
+        prune_plan = plan_prune({"square"}, fallback=inn)
+        assert prune_plan.errors == []
+        assert "side door" not in {
+            evacuation.occupant.key for evacuation in prune_plan.evacuations
+        }
+        report = execute_prune(prune_plan)
+        assert report.ok
+        assert not ObjectDB.objects.filter(pk=door.pk).exists()
+
+    def test_vetoed_move_fails_the_evacuation(self) -> None:
+        self._spawn_world()
+        hall = find_entity_object("square")
+        inn = find_entity_object("inn")
+        rooted = create.create_object(_RootedCharacter, key="Rooted", location=hall)
+        rooted.home = inn
+        prune_plan = plan_prune({"square"}, fallback=inn)
+        report = execute_prune(prune_plan)
+        assert not report.ok
+        assert "evacuate Rooted: FAILED" in report.render()
+        # A failed evacuation skips the destruction phase entirely.
+        assert report.destroyed == 0
+        assert find_entity_object("square") is not None
+
+    def test_delete_returning_none_is_a_failure(self) -> None:
+        room = SimpleNamespace(key="room", contents=[], delete=lambda: None)
+        with mock.patch.object(prune, "find_entity_objects", return_value=[room]):
+            prune_plan = plan_prune({"square"}, fallback=None)
+            report = execute_prune(prune_plan)
+        assert not report.ok
+        assert report.destroyed == 0
+        assert "destroy square: FAILED" in report.render()
+
     def test_evacuation_failure_is_reported(self) -> None:
         delete = mock.Mock()
         room = SimpleNamespace(key="room", contents=[_BadOccupant()], delete=delete)
@@ -221,22 +265,26 @@ class TestPrune(BaseEvenniaTestCase):
         assert report.destroyed == 0
 
 
+class _RootedCharacter(DefaultCharacter):
+    """A character whose move hooks veto every move."""
+
+    def at_pre_move(
+        self, destination: Any, move_type: str | None = None, **kwargs: Any
+    ) -> bool:
+        return False
+
+
 class _FakeTags:
     def get(self, **kwargs: object) -> list[str]:
         return []
 
 
 class _BadOccupant:
-    """An occupant whose location assignment always fails."""
+    """An occupant whose move always fails."""
 
     key = "bad"
     home = None
     tags = _FakeTags()
 
-    @property
-    def location(self) -> Any:
-        return None
-
-    @location.setter
-    def location(self, value: Any) -> None:
+    def move_to(self, destination: Any, move_type: str | None = None) -> bool:
         raise RuntimeError("boom")
