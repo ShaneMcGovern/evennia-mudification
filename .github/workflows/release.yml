@@ -41,7 +41,7 @@ jobs:
           git reset --hard origin/main
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.0.1
+        uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: "uv.lock"
